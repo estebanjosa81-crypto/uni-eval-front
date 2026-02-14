@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Users, GraduationCap, ClipboardList, TrendingDown, User, Award, Star, AlertCircle, AlertTriangle, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useRequireRole } from "@/src/api/core/auth";
 import { metricService } from "@/src/api";
 import type { MetricFilters, RankingItem, SummaryMetrics, ProgramaSummary } from "@/src/api/services/metric/metric.service";
 import Filtros from "@/src/app/(protected)/admin/components/filters";
@@ -68,27 +67,9 @@ interface FiltrosState {
 }
 
 export default function AdminDashboard() {
-  // Validar que el usuario tiene rol de Admin
-  const { isAuthorized } = useRequireRole("Admin");
-  
+  // Protegido por admin/layout.tsx con useRequireRole(APP_ROLE_IDS.ADMIN)
   const { toast } = useToast();
   const [loadingBackup, setLoadingBackup] = useState(false);
-
-  // Si no está autorizado, mostrar mensaje de carga
-  if (isAuthorized === false) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Card className="w-96">
-          <CardHeader>
-            <CardTitle>Acceso Denegado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>No tienes permisos para acceder al panel de administración.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   const handleBackup = async () => {
     try {
@@ -636,13 +617,10 @@ export default function AdminDashboard() {
                         <div className="flex-1 min-w-0 space-y-2">
                           <div className="flex items-center justify-between">
                             <h3 className="text-base font-semibold text-gray-800 truncate">
-                              {docente.docente}
+                              {docente.nombre_docente}
                             </h3>
                             <span className="text-base font-bold text-gray-700 ml-2 px-3 py-1 bg-gray-100 rounded-full">
-                              {formatNumber(
-                                (docente.adjusted || 0) * 100
-                              )}
-                              %
+                              {formatNumber(docente.adjusted || 0)}/5
                             </span>
                           </div>
 
@@ -657,7 +635,7 @@ export default function AdminDashboard() {
                   }`}
                               style={{
                                 width: `${
-                                  (docente.adjusted || 0) * 100
+                                  ((docente.adjusted || 0) / 5) * 100
                                 }%`,
                               }}
                             />
@@ -751,13 +729,10 @@ export default function AdminDashboard() {
                           <div className="flex-1 min-w-0 space-y-2">
                             <div className="flex items-center justify-between">
                               <h3 className="text-base font-semibold text-gray-800 truncate">
-                                {docente.docente}
+                                {docente.nombre_docente}
                               </h3>
                               <span className="text-base font-bold text-green-700 px-3 py-1 bg-green-100 rounded-full">
-                                {formatNumber(
-                                  (docente.adjusted || 0) * 100
-                                )}
-                                %
+                                {formatNumber(docente.adjusted || 0)}/5
                               </span>
                             </div>
 
@@ -772,10 +747,7 @@ export default function AdminDashboard() {
                                   <Star
                                     key={i}
                                     className={`h-4 w-4 ${
-                                      i <
-                                      Math.floor(
-                                        (docente.adjusted || 0) * 5
-                                      )
+                                      i < Math.floor(docente.adjusted || 0)
                                         ? "fill-yellow-400 text-yellow-400"
                                         : "fill-gray-200 text-gray-200"
                                     }`}
@@ -834,13 +806,10 @@ export default function AdminDashboard() {
                           <div className="flex-1 min-w-0 space-y-2">
                             <div className="flex items-center justify-between">
                               <h3 className="text-base font-semibold text-gray-800 truncate">
-                                {docente.docente}
+                                {docente.nombre_docente}
                               </h3>
                               <span className="text-base font-bold text-orange-700 px-3 py-1 bg-orange-100 rounded-full">
-                                {formatNumber(
-                                  (docente.adjusted || 0) * 100
-                                )}
-                                %
+                                {formatNumber(docente.adjusted || 0)}/5
                               </span>
                             </div>
 

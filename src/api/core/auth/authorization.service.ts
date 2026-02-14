@@ -155,10 +155,29 @@ export function getPrimaryRoleId(user: User | null): number | null {
 export function getDefaultRoute(user: User | null): string {
   if (!user) return '/login';
   
+  // Primero intentar con roles de aplicación
   const primaryRoleId = getPrimaryRoleId(user);
   
   if (primaryRoleId !== null && ROLE_ROUTES[primaryRoleId]) {
     return ROLE_ROUTES[primaryRoleId];
+  }
+  
+  // Si no tiene roles de aplicación, verificar roles de autenticación
+  const authRoleIds = getUserAuthRoleIds(user);
+  
+  // Si es estudiante (AUTH_ROLE_IDS.ESTUDIANTE = 1)
+  if (authRoleIds.includes(AUTH_ROLE_IDS.ESTUDIANTE)) {
+    return '/estudiante/bienvenida';
+  }
+  
+  // Si es docente (AUTH_ROLE_IDS.DOCENTE = 2)
+  if (authRoleIds.includes(AUTH_ROLE_IDS.DOCENTE)) {
+    return '/docente/dashboard';
+  }
+  
+  // Si es admin (AUTH_ROLE_IDS.ADMIN = 3)
+  if (authRoleIds.includes(AUTH_ROLE_IDS.ADMIN)) {
+    return '/admin/dashboard';
   }
   
   return '/login';
@@ -170,7 +189,8 @@ export function getDefaultRoute(user: User | null): string {
 export function canAccessRoute(
   user: User | null, 
   routePath: string, 
-  allowedRoleIds?: number[]
+  allowedRoleIds?: number[],
+  roleType: RoleType = 'app'
 ): boolean {
   if (!user) return false;
   
@@ -179,6 +199,11 @@ export function canAccessRoute(
   
   // Si no se especifican roles permitidos, cualquier usuario autenticado puede acceder
   if (!allowedRoleIds || allowedRoleIds.length === 0) return true;
+  
+  // Verificar según el tipo de rol
+  if (roleType === 'auth') {
+    return hasAuthRole(user, allowedRoleIds);
+  }
   
   return hasAppRole(user, allowedRoleIds);
 }
@@ -266,12 +291,9 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   },
   '/estudiante': {
     path: '/estudiante',
-    allowedRoleIds: [
-      APP_ROLE_IDS.ADMIN, 
-      APP_ROLE_IDS.ESTUDIANTE
-    ],
+    allowedRoleIds: [AUTH_ROLE_IDS.ESTUDIANTE],
     requiresAuth: true,
-    type: 'app',
+    type: 'auth',
   },
 };
 

@@ -56,7 +56,15 @@ export type {
 // SERVICES (AUTH)
 // ========================
 export { authService } from './services/auth/auth.service';
-export type { LoginRequest, LoginResponse, AuthResponse } from './services/auth/auth.service';
+export type { LoginRequest, LoginResponse, AuthResponse, UserProfile } from './services/auth/auth.service';
+
+export { rolService } from './services/auth/rol.service';
+export type { 
+  Rol, 
+  CreateRolInput, 
+  UpdateRolInput,
+  RolMixto,
+} from './services/auth/rol.service';
 
 // ========================
 // SERVICES (GENERATED)
@@ -84,7 +92,11 @@ export type {
   CfgAItem,
   CfgEItem,
   ConfiguracionCfgACfgEResponse,
+  EvalByUserItem,
 } from './services/app/cfg-t.service';
+
+export { evalService } from './services/app/eval.service';
+export type { EvalGenerarInput, EvalGeneradaItem } from './services/app/eval.service';
 
 export {
   tipoService,
@@ -150,21 +162,26 @@ export type {
   AspectoEscalaBulkInput,
   AspectoEscalaBulkResponse,
   UpdateAspectoEscalaInput,
+  UpdateAspectoIdInput,
 } from './services/app/a-e.service';
 
+export { cfgTRolService } from './services/app/cfg-t-rol.service';
+export type {
+  CfgTRol,
+  RolAsignado,
+  CreateCfgTRolInput,
+  UpdateCfgTRolInput,
+} from './services/app/cfg-t-rol.service';
+
 export {
-  rolService,
   userRolService,
   progService,
   userProgService,
 } from './services/app/rol.service';
 export type {
-  Rol,
   UserRol,
   Prog,
   UserProg,
-  CreateRolInput,
-  UpdateRolInput,
   CreateUserRolInput,
   UpdateUserRolInput,
   CreateProgInput,

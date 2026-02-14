@@ -4,6 +4,7 @@ import type React from "react"
 import { AdminSidebar } from "./components/admin-sidebar"
 import { useSidebar } from "@/hooks/useSidebar"
 import { useRequireRole } from "@/src/api/core/auth/useAuth"
+import { APP_ROLE_IDS } from "@/src/api/core/auth/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function AdminLayout({
@@ -12,7 +13,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const { isCollapsed, toggle } = useSidebar()
-  const { isAuthorized } = useRequireRole("Admin")
+  const { isAuthorized } = useRequireRole(APP_ROLE_IDS.ADMIN)
 
   // Si no está autorizado, mostrar mensaje de acceso denegado
   if (isAuthorized === false) {

@@ -270,10 +270,6 @@ export function ModalCategoriaTipoMap({
                         htmlFor={`tipo-${tipo.id}`}
                         className="flex-1 cursor-pointer text-sm"
                       >
-                        <div className="flex items-center gap-2">
-                          <span>{tipo.nombre}</span>
-                          {tipo.es_activo && <Badge variant="outline" className="text-xs">Activo</Badge>}
-                        </div>
                         <p className="text-xs text-muted-foreground">{tipo.descripcion}</p>
                       </Label>
                     </div>

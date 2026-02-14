@@ -4,7 +4,6 @@
 import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { 
   BookOpen, 
   Settings, 
@@ -21,6 +20,7 @@ import {
   categoriaTipoMapService,
   categoriaAspectoMapService,
   categoriaEscalaMapService,
+  rolService,
   type Tipo,
   type Aspecto,
   type Escala,
@@ -29,6 +29,7 @@ import {
   type CategoriaTipoItemsResponse,
   type CategoriaAspectoItemsResponse,
   type CategoriaEscalaItemsResponse,
+  type RolMixto,
 } from "@/src/api";
 import type { PaginationMeta, PaginationParams } from "@/src/api/types/api.types";
 
@@ -149,6 +150,7 @@ export default function FormularioPage() {
   // Data para configuración
   const [aspectos, setAspectos] = useState<Aspecto[]>([]);
   const [escalas, setEscalas] = useState<Escala[]>([]);
+  const [rolesDisponibles, setRolesDisponibles] = useState<RolMixto[]>([]);
 
   // Efectos
   useEffect(() => {
@@ -163,6 +165,7 @@ export default function FormularioPage() {
         loadCategoriasEscala(),
         loadAspectos(),
         loadEscalas(),
+        loadRolesDisponibles(),
       ]);
     } catch (error) {
       console.error("Error al cargar datos iniciales:", error);
@@ -321,6 +324,18 @@ export default function FormularioPage() {
       }
     } catch (error) {
       console.error("Error cargando escalas:", error);
+    }
+  };
+
+  const loadRolesDisponibles = async () => {
+    try {
+      const response = await rolService.getAllMix();
+      if (response.success && response.data) {
+        const items = extractItems<RolMixto>(response.data);
+        setRolesDisponibles(items);
+      }
+    } catch (error) {
+      console.error("Error cargando roles disponibles:", error);
     }
   };
 
@@ -485,7 +500,8 @@ export default function FormularioPage() {
   ];
 
   return (
-    <ProtectedRoute allowedRoles={["Admin"]}>
+    <>
+      {/* Protegido por admin/layout.tsx con useRequireRole(APP_ROLE_IDS.ADMIN) */}
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar */}
         <aside className="w-64 bg-white border-r border-gray-200 shadow-sm overflow-y-auto">
@@ -596,6 +612,7 @@ export default function FormularioPage() {
                 setModalAe={setModalAe}
                 handleEliminarConfiguracion={async () => {}}
                 refreshData={cargarDatosIniciales}
+                rolesDisponibles={rolesDisponibles}
               />
             )}
           </div>
@@ -702,6 +719,6 @@ export default function FormularioPage() {
         cfgTId={modalConfiguracionValoracion.cfgTId}
         escalas={modalConfiguracionValoracion.escalas || escalas}
       />
-    </ProtectedRoute>
+    </>
   );
 }

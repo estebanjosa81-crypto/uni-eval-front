@@ -1,19 +1,106 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ChevronDown, ChevronUp } from "lucide-react";
-import { type AspectoConEscalas } from "@/src/api";
-import { useState } from "react";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, ChevronDown, ChevronUp, Edit, Trash2 } from "lucide-react";
+import { type AspectoConEscalas, type CfgAItem, aEService, configuracionEvaluacionService, type ConfiguracionCfgACfgEResponse } from "@/src/api";
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { ModalConfirmacion } from "@/src/app/(protected)/admin/formulario/components/ModalConfirmacion";
+import { ModalEditarAspectoEscala } from "./ModalEditarAspectoEscala";
+
+interface CfgAItemEnriquecido extends CfgAItem {
+  tipo_evaluacion?: string;
+  es_configuracion_actual?: boolean;
+}
 
 interface AeViewProps {
   aspectosConEscalas: AspectoConEscalas[];
+  configuracionAspectos: CfgAItem[];
+  cfgTId: number;
   setModalAe: (value: any) => void;
+  onConfigUpdated?: () => void;
 }
 
-export function AeView({ aspectosConEscalas, setModalAe }: AeViewProps) {
+export function AeView({
+  aspectosConEscalas,
+  configuracionAspectos,
+  cfgTId,
+  setModalAe,
+  onConfigUpdated,
+}: AeViewProps) {
+  const { toast } = useToast();
   const [expandedAspecto, setExpandedAspecto] = useState<number | null>(
     aspectosConEscalas.length > 0 ? aspectosConEscalas[0].id : null
   );
+  const [deleteOpcionId, setDeleteOpcionId] = useState<number | null>(null);
+  const [deleteAspectoCfgAId, setDeleteAspectoCfgAId] = useState<number | null>(null);
+  const [deleteAspectoNombre, setDeleteAspectoNombre] = useState<string>("");
+  const [editOpcionId, setEditOpcionId] = useState<number | null>(null);
+  const [editAspecto, setEditAspecto] = useState<AspectoConEscalas | null>(null);
+  const [newAspectoCfgAId, setNewAspectoCfgAId] = useState<string>("");
+  const [isUpdatingAspecto, setIsUpdatingAspecto] = useState(false);
+  const [aspectosGlobales, setAspectosGlobales] = useState<CfgAItemEnriquecido[]>([]);
+  const [isLoadingAspectos, setIsLoadingAspectos] = useState(false);
+
+  useEffect(() => {
+    loadAspectosGlobales();
+  }, []);
+
+  const loadAspectosGlobales = async () => {
+    setIsLoadingAspectos(true);
+    try {
+      const response = await configuracionEvaluacionService.getCfgACfgE();
+      if (response.success && response.data && Array.isArray(response.data)) {
+        // Consolidar todos los cfg_a únicos de todas las configuraciones
+        const aspectosMap = new Map<number, CfgAItemEnriquecido>();
+        response.data.forEach((config: ConfiguracionCfgACfgEResponse) => {
+          const tipoEvalNombre = config.tipo_evaluacion?.tipo?.nombre || 'Sin tipo';
+          const categoriaNombre = config.tipo_evaluacion?.categoria?.nombre || '';
+          const tipoCompleto = categoriaNombre ? `${categoriaNombre} - ${tipoEvalNombre}` : tipoEvalNombre;
+          
+          config.cfg_a
+            .filter((a) => a.es_activo)
+            .forEach((a) => {
+              if (!aspectosMap.has(a.id)) {
+                aspectosMap.set(a.id, {
+                  ...a,
+                  tipo_evaluacion: tipoCompleto,
+                  es_configuracion_actual: a.cfg_t_id === cfgTId,
+                });
+              }
+            });
+        });
+        const aspectosArray = Array.from(aspectosMap.values()).sort((a, b) => {
+          // Primero los de la configuración actual
+          if (a.es_configuracion_actual !== b.es_configuracion_actual) {
+            return a.es_configuracion_actual ? -1 : 1;
+          }
+          return (a.aspecto?.nombre || '').localeCompare(b.aspecto?.nombre || '');
+        });
+        setAspectosGlobales(aspectosArray);
+      }
+    } catch (error) {
+      console.error("Error loading aspectos globales:", error);
+    } finally {
+      setIsLoadingAspectos(false);
+    }
+  };
 
   const totalOpciones = aspectosConEscalas.reduce(
     (sum, aspecto) => sum + aspecto.opciones.length,
@@ -22,6 +109,120 @@ export function AeView({ aspectosConEscalas, setModalAe }: AeViewProps) {
 
   const toggleAspecto = (id: number) => {
     setExpandedAspecto(expandedAspecto === id ? null : id);
+  };
+
+  const handleDeleteOpcion = async () => {
+    if (!deleteOpcionId) return;
+    try {
+      const response = await aEService.delete(deleteOpcionId);
+      if (response.success) {
+        toast({
+          title: "Opción eliminada",
+          description: "La relación aspecto-escala fue eliminada correctamente",
+        });
+        onConfigUpdated?.();
+      } else {
+        throw new Error(response.error?.message || "No se pudo eliminar");
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "No se pudo eliminar la opción",
+      });
+    } finally {
+      setDeleteOpcionId(null);
+    }
+  };
+
+  const handleDeleteAspecto = async () => {
+    if (!deleteAspectoCfgAId) return;
+    try {
+      const response = await aEService.deleteAspecto(deleteAspectoCfgAId, cfgTId);
+      if (response.success) {
+        toast({
+          title: "Aspecto eliminado",
+          description: "El aspecto y sus escalas fueron eliminados correctamente",
+        });
+        onConfigUpdated?.();
+      } else {
+        throw new Error(response.error?.message || "No se pudo eliminar");
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "No se pudo eliminar el aspecto",
+      });
+    } finally {
+      setDeleteAspectoCfgAId(null);
+      setDeleteAspectoNombre("");
+    }
+  };
+
+  const openEditAspecto = (aspecto: AspectoConEscalas) => {
+    const candidates = aspectosGlobales.filter((item) => item.id !== aspecto.cfg_a_id);
+    setNewAspectoCfgAId(candidates.length > 0 ? String(candidates[0].id) : "");
+    setEditAspecto(aspecto);
+  };
+
+  const handleUpdateAspecto = async () => {
+    if (!editAspecto) return;
+    if (!newAspectoCfgAId) {
+      toast({
+        variant: "destructive",
+        title: "Falta seleccionar",
+        description: "Debes seleccionar un nuevo aspecto",
+      });
+      return;
+    }
+
+    const newId = parseInt(newAspectoCfgAId, 10);
+    if (newId === editAspecto.cfg_a_id) {
+      toast({
+        variant: "destructive",
+        title: "Selección inválida",
+        description: "El nuevo aspecto debe ser diferente al actual",
+      });
+      return;
+    }
+
+    setIsUpdatingAspecto(true);
+    try {
+      const response = await aEService.updateAspecto({
+        oldAspectoId: editAspecto.cfg_a_id,
+        newAspectoId: newId,
+        cfgTId,
+      });
+
+      if (response.success) {
+        toast({
+          title: "Aspecto actualizado",
+          description: "La relación fue actualizada correctamente",
+        });
+        onConfigUpdated?.();
+        setEditAspecto(null);
+        setNewAspectoCfgAId("");
+      } else {
+        throw new Error(response.error?.message || "No se pudo actualizar");
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "No se pudo actualizar el aspecto",
+      });
+    } finally {
+      setIsUpdatingAspecto(false);
+    }
+  };
+
+  const findOpcionByAeId = (aeId: number) => {
+    for (const aspecto of aspectosConEscalas) {
+      const opcion = aspecto.opciones.find((opt) => opt.a_e_id === aeId);
+      if (opcion) return opcion;
+    }
+    return null;
   };
 
   return (
@@ -97,7 +298,31 @@ export function AeView({ aspectosConEscalas, setModalAe }: AeViewProps) {
                     Orden: {aspecto.orden} • Opciones: {aspecto.opciones.length}
                   </p>
                 </div>
-                <div className="ml-4 flex-shrink-0">
+                <div className="ml-4 flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditAspecto(aspecto);
+                    }}
+                    disabled={aspectosGlobales.length <= 1 || isLoadingAspectos}
+                    title="Editar aspecto"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteAspectoCfgAId(aspecto.cfg_a_id);
+                      setDeleteAspectoNombre(aspecto.nombre);
+                    }}
+                    title="Eliminar aspecto"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                   {expandedAspecto === aspecto.id ? (
                     <ChevronUp className="h-5 w-5 text-muted-foreground" />
                   ) : (
@@ -137,9 +362,33 @@ export function AeView({ aspectosConEscalas, setModalAe }: AeViewProps) {
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-muted-foreground">
-                                Orden: {opcion.orden}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs text-muted-foreground mr-2">
+                                  Orden: {opcion.orden}
+                                </p>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditOpcionId(opcion.a_e_id);
+                                  }}
+                                  title="Editar opción"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteOpcionId(opcion.a_e_id);
+                                  }}
+                                  title="Eliminar opción"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
                             {opcion.descripcion && (
                               <p className="text-xs text-muted-foreground">
@@ -157,6 +406,110 @@ export function AeView({ aspectosConEscalas, setModalAe }: AeViewProps) {
           ))}
         </div>
       )}
+
+      <ModalConfirmacion
+        isOpen={Boolean(deleteOpcionId)}
+        onClose={() => setDeleteOpcionId(null)}
+        onConfirm={handleDeleteOpcion}
+        title="Eliminar opción aspecto-escala"
+        description="¿Estás seguro de eliminar esta relación? Esta acción no se puede deshacer."
+      />
+
+      <ModalConfirmacion
+        isOpen={Boolean(deleteAspectoCfgAId)}
+        onClose={() => {
+          setDeleteAspectoCfgAId(null);
+          setDeleteAspectoNombre("");
+        }}
+        onConfirm={handleDeleteAspecto}
+        title="Eliminar aspecto"
+        description={
+          deleteAspectoNombre
+            ? `¿Eliminar el aspecto "${deleteAspectoNombre}" y todas sus escalas?`
+            : "¿Eliminar el aspecto y todas sus escalas?"
+        }
+      />
+
+      <Dialog
+        open={Boolean(editAspecto)}
+        onOpenChange={(open) => {
+          if (!open && !isUpdatingAspecto) {
+            setEditAspecto(null);
+            setNewAspectoCfgAId("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar aspecto</DialogTitle>
+            <DialogDescription>
+              Selecciona un nuevo aspecto para reemplazar el actual en esta configuración.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label>Nuevo aspecto</Label>
+            <Select value={newAspectoCfgAId} onValueChange={setNewAspectoCfgAId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un aspecto" />
+              </SelectTrigger>
+              <SelectContent>
+                {aspectosGlobales
+                  .filter((item) => item.id !== editAspecto?.cfg_a_id)
+                  .map((item) => (
+                    <SelectItem key={item.id} value={String(item.id)}>
+                      <div className="flex items-center gap-2">
+                        <span>{item.aspecto?.nombre ?? `Aspecto #${item.aspecto_id}`}</span>
+                        {item.es_configuracion_actual ? (
+                          <Badge variant="default" className="text-xs ml-2">
+                            Actual
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs ml-2">
+                            {item.tipo_evaluacion}
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {isLoadingAspectos && (
+              <p className="text-xs text-muted-foreground">Cargando aspectos disponibles...</p>
+            )}
+          </div>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (!isUpdatingAspecto) {
+                  setEditAspecto(null);
+                  setNewAspectoCfgAId("");
+                }
+              }}
+              disabled={isUpdatingAspecto}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleUpdateAspecto} disabled={isUpdatingAspecto}>
+              {isUpdatingAspecto ? "Actualizando..." : "Actualizar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ModalEditarAspectoEscala
+        isOpen={Boolean(editOpcionId)}
+        onClose={() => setEditOpcionId(null)}
+        onSuccess={() => {
+          setEditOpcionId(null);
+          onConfigUpdated?.();
+        }}
+        opcion={findOpcionByAeId(editOpcionId || 0)}
+        cfgTId={cfgTId}
+      />
     </div>
   );
 }

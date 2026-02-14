@@ -144,7 +144,7 @@ export default function Filtros({
         setLoadingData(true)
 
         const [configsResponse, periodosResponse] = await Promise.all([
-          configuracionEvaluacionService.getAll().catch((err) => {
+          configuracionEvaluacionService.getAllByRole().catch((err) => {
             logger.error('Filtros', 'Error cargando configuraciones', err)
             return { data: [] }
           }),
@@ -212,7 +212,15 @@ export default function Filtros({
           logger.error('Filtros', 'Error cargando sedes', err)
           return []
         })
-        if (mounted) setSedes(normalizeApiResponse<string>(sedesResponse))
+        const sedesData = normalizeApiResponse<string>(sedesResponse)
+        if (mounted) {
+          setSedes(sedesData)
+          
+          // Seleccionar automáticamente la primera sede si no hay ninguna seleccionada
+          if (!filtros.sedeSeleccionada && sedesData.length > 0) {
+            onFiltrosChange({ ...filtros, sedeSeleccionada: sedesData[0] })
+          }
+        }
 
         // Cargar programas
         if (filtros.sedeSeleccionada) {
@@ -378,7 +386,7 @@ export default function Filtros({
               <option value="">Selecciona configuración</option>
               {configuraciones.map((config) => (
                 <option key={config.id} value={config.id}>
-                  Evaluación Tipo {config.tipo_evaluacion_id} {config.es_activo && "✓ (Activa)"}
+                  {config.tipo_evaluacion?.tipo?.nombre || `Evaluación Tipo ${config.tipo_evaluacion_id}`} - {config.tipo_evaluacion?.categoria?.nombre || ''} {config.es_activo && "✓"}
                 </option>
               ))}
             </select>
@@ -570,7 +578,7 @@ export default function Filtros({
                 <div className="p-2 bg-blue-200 rounded-xl">
                   <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                 </div>
-                Configuración ID: {configuracionSeleccionada.id}
+                Configuración: {configuracionSeleccionada.tipo_evaluacion.tipo.nombre} - {configuracionSeleccionada.tipo_evaluacion.categoria.nombre}
               </h4>
               <span className={`px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 ${
                 configuracionSeleccionada.es_activo 

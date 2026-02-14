@@ -160,9 +160,9 @@ export function AdminSidebar({ isCollapsed = false, onToggle }: AdminSidebarProp
       description: "Panel principal"
     },
     {
-      href: "/admin/profesores",
+      href: "/admin/docente",
       icon: Users,
-      label: "Profesores",
+      label: "Docentes",
       description: "Gestión docentes"
     },
     {

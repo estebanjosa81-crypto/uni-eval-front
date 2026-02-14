@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -11,12 +12,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle, Edit3 } from "lucide-react";
+import { Card, CardContent, CardDescription } from "@/components/ui/card";
+import { AlertCircle, Edit3, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   configuracionValoracionService,
+  categoriaEscalaMapService,
+  categoriaEscalaService,
   type CfgEItem,
+  type CategoriaEscala,
+  type EscalaMapItem,
 } from "@/src/api";
 
 interface ModalEditarConfiguracionEscalaProps {
@@ -34,6 +39,13 @@ interface FormData {
   es_activo: boolean;
 }
 
+interface EscalaRow {
+  map_id: number;
+  sigla?: string;
+  nombre?: string;
+  descripcion?: string | null;
+}
+
 export function ModalEditarConfiguracionEscala({
   isOpen,
   onClose,
@@ -48,7 +60,11 @@ export function ModalEditarConfiguracionEscala({
     orden: 1,
     es_activo: true,
   });
+  const [categorias, setCategorias] = useState<CategoriaEscala[]>([]);
+  const [openCategoryIds, setOpenCategoryIds] = useState<number[]>([]);
+  const [rowsByCategory, setRowsByCategory] = useState<Record<number, EscalaRow[]>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingCategoryId, setLoadingCategoryId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,9 +76,78 @@ export function ModalEditarConfiguracionEscala({
         orden: Number(configuracion.orden) || 1,
         es_activo: configuracion.es_activo,
       });
+      loadCategorias();
       setError(null);
     }
   }, [isOpen, configuracion]);
+
+  const loadCategorias = async () => {
+    setIsLoading(true);
+    try {
+      const response = await categoriaEscalaService.getAll({ page: 1, limit: 100 });
+      if (response.success && response.data) {
+        const cats = Array.isArray(response.data?.data)
+          ? response.data.data
+          : Array.isArray(response.data)
+            ? response.data
+            : [];
+        setCategorias(cats);
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las categorías",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSelectCategoria = async (categoriaId: number) => {
+    const categoria = categorias.find((cat) => cat.id === categoriaId) || null;
+    if (!categoria) return;
+
+    const isOpen = openCategoryIds.includes(categoriaId);
+    setOpenCategoryIds((prev) =>
+      isOpen ? prev.filter((id) => id !== categoriaId) : [...prev, categoriaId]
+    );
+
+    if (rowsByCategory[categoriaId]) return;
+
+    setLoadingCategoryId(categoriaId);
+    try {
+      const response = await categoriaEscalaMapService.listEscalasByCategoria(categoria.id);
+      if (response.success && response.data) {
+        const items = response.data.items || [];
+        const initialRows = items.map((escala: EscalaMapItem) => ({
+          map_id: escala.map_id,
+          sigla: escala.sigla,
+          nombre: escala.nombre,
+          descripcion: escala.descripcion,
+        }));
+        setRowsByCategory((prev) => ({
+          ...prev,
+          [categoriaId]: initialRows,
+        }));
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las escalas de la categoría",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingCategoryId(null);
+    }
+  };
+
+  const handleSelectEscala = (mapId: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      escala_id: mapId,
+    }));
+  };
 
   const validate = () => {
     if (formData.orden <= 0) {
@@ -71,6 +156,10 @@ export function ModalEditarConfiguracionEscala({
     }
     if (Number.isNaN(formData.puntaje)) {
       setError("El puntaje debe ser un número válido");
+      return false;
+    }
+    if (formData.escala_id <= 0) {
+      setError("Debes seleccionar una escala");
       return false;
     }
     setError(null);
@@ -117,6 +206,8 @@ export function ModalEditarConfiguracionEscala({
     if (!isLoading) {
       onClose();
       setError(null);
+      setOpenCategoryIds([]);
+      setRowsByCategory({});
     }
   };
 
@@ -124,7 +215,7 @@ export function ModalEditarConfiguracionEscala({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-primary/10 rounded-lg">
@@ -135,7 +226,7 @@ export function ModalEditarConfiguracionEscala({
                 Editar Configuración de Escala
               </DialogTitle>
               <DialogDescription className="text-sm mt-1">
-                Modifica el puntaje, orden y estado de la escala configurada
+                Selecciona una escala diferente o actualiza el puntaje, orden y estado
               </DialogDescription>
             </div>
           </div>
@@ -143,20 +234,102 @@ export function ModalEditarConfiguracionEscala({
 
         <Card className="border shadow-none bg-muted/20">
           <CardContent className="p-4 space-y-4">
-            <div className="p-3 bg-background rounded-lg border">
-              <Label className="text-xs text-muted-foreground">Escala</Label>
-              <p className="font-semibold mt-1">
-                {configuracion.escala?.sigla && configuracion.escala?.nombre
-                  ? `${configuracion.escala.sigla} - ${configuracion.escala.nombre}`
-                  : `Escala #${configuracion.escala_id}`}
-              </p>
-              {configuracion.escala?.descripcion && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  {configuracion.escala.descripcion}
-                </p>
+            {/* Selección de Escala */}
+            <div className="space-y-3">
+              <Label className="font-semibold">Seleccionar Escala</Label>
+              {categorias.length === 0 ? (
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  No hay categorías disponibles
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {categorias.map((categoria) => {
+                    const isOpen = openCategoryIds.includes(categoria.id);
+                    const rows = rowsByCategory[categoria.id] ?? [];
+                    const isLoadingRows = loadingCategoryId === categoria.id;
+                    return (
+                      <Card key={categoria.id} className="border bg-background">
+                        <CardContent className="p-0">
+                          <button
+                            type="button"
+                            className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted/40"
+                            onClick={() => handleSelectCategoria(categoria.id)}
+                            disabled={isLoading}
+                          >
+                            <div>
+                              <p className="font-semibold text-sm">{categoria.nombre}</p>
+                              {categoria.descripcion && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {categoria.descripcion}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {isOpen ? "Ocultar" : "Ver"}
+                            </span>
+                          </button>
+
+                          {isOpen && (
+                            <div className="px-4 pb-4">
+                              {isLoadingRows ? (
+                                <div className="text-sm text-muted-foreground text-center py-4">
+                                  Cargando escalas...
+                                </div>
+                              ) : rows.length === 0 ? (
+                                <div className="text-sm text-muted-foreground text-center py-4">
+                                  No hay escalas en esta categoría.
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {rows.map((row) => (
+                                    <div
+                                      key={row.map_id}
+                                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                        formData.escala_id === row.map_id
+                                          ? "bg-primary/10 border-primary"
+                                          : "bg-background hover:bg-muted/50"
+                                      }`}
+                                      onClick={() => handleSelectEscala(row.map_id)}
+                                    >
+                                      <Checkbox
+                                        checked={formData.escala_id === row.map_id}
+                                        onCheckedChange={() =>
+                                          handleSelectEscala(row.map_id)
+                                        }
+                                        className="mt-1"
+                                      />
+                                      <div className="flex-1">
+                                        <p className="font-medium text-sm">
+                                          {row.sigla && row.nombre
+                                            ? `${row.sigla} - ${row.nombre}`
+                                            : `Escala #${row.map_id}`}
+                                        </p>
+                                        {row.descripcion && (
+                                          <p className="text-xs text-muted-foreground mt-1">
+                                            {row.descripcion}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
+            <div className="border-t pt-4">
+              <Label className="font-semibold">Configuración</Label>
+            </div>
+
+            {/* Campo Puntaje */}
             <div className="space-y-2">
               <Label htmlFor="puntaje">Puntaje *</Label>
               <Input
@@ -175,6 +348,7 @@ export function ModalEditarConfiguracionEscala({
               />
             </div>
 
+            {/* Campo Orden */}
             <div className="space-y-2">
               <Label htmlFor="orden">Orden *</Label>
               <Input
@@ -196,6 +370,7 @@ export function ModalEditarConfiguracionEscala({
               </p>
             </div>
 
+            {/* Campo Estado Activo */}
             <div className="flex items-center justify-between p-3 bg-background rounded-lg border">
               <div className="space-y-0.5">
                 <Label htmlFor="es_activo" className="cursor-pointer">

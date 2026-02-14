@@ -68,6 +68,7 @@ export interface SummaryByPrograms {
 // Ranking Types
 export interface RankingItem {
   docente: string;
+  nombre_docente: string;
   avg: number;
   adjusted: number;
   realizados: number;
@@ -239,12 +240,22 @@ export const metricService = {
    * Obtener listado de docentes con métricas (paginado)
    */
   getDocentes: async (
-    filters: MetricFilters & { docente?: string; page?: number; limit?: number }
+    filters: MetricFilters & {
+      docente?: string;
+      page?: number;
+      limit?: number;
+      search?: string;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    }
   ): Promise<DocenteListResponse> => {
     const params = new URLSearchParams();
     params.append('cfg_t', filters.cfg_t.toString());
 
     if (filters.docente) params.append('docente', filters.docente);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.sortBy) params.append('sortBy', filters.sortBy);
+    if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
     if (filters.sede) params.append('sede', filters.sede);
     if (filters.periodo) params.append('periodo', filters.periodo);
     if (filters.programa) params.append('programa', filters.programa);

@@ -4,6 +4,7 @@
  */
 
 import { BaseService } from '../../core/BaseService';
+import { httpClient } from '../../core/HttpClient';
 import type { ApiResponse } from '../../types/api.types';
 
 export interface AspectoEscala {
@@ -54,6 +55,12 @@ export interface UpdateAspectoEscalaInput {
   es_cmt_oblig?: boolean;
 }
 
+export interface UpdateAspectoIdInput {
+  oldAspectoId: number;
+  newAspectoId: number;
+  cfgTId: number;
+}
+
 class AEService extends BaseService<AspectoEscala, AspectoEscalaBulkInput, UpdateAspectoEscalaInput> {
   constructor() {
     super('/a/e');
@@ -67,6 +74,30 @@ class AEService extends BaseService<AspectoEscala, AspectoEscalaBulkInput, Updat
     return this.executeAsync(
       () => this.bulkCreate(data),
       { success: false, data: {} } as AspectoEscalaBulkResponse
+    );
+  }
+
+  /**
+   * Delete an aspecto with all its escalas
+   * DELETE /a/e/:aspectoId
+   * @param aspectoId - cfg_a.id (the aspecto configuration id in a_e table)
+   * @param cfgTId - cfg_t.id (configuration id for safety)
+   */
+  async deleteAspecto(aspectoId: number, cfgTId: number): Promise<ApiResponse<any>> {
+    return this.executeAsync(
+      () => httpClient.delete(`/a/e/${aspectoId}?cfgTId=${cfgTId}`),
+      { success: false }
+    );
+  }
+
+  /**
+   * Update aspecto_id in all escalas for that aspecto
+   * PUT /a/e/update
+   */
+  async updateAspecto(data: UpdateAspectoIdInput): Promise<ApiResponse<any>> {
+    return this.executeAsync(
+      () => httpClient.put(`/a/e/update`, data),
+      { success: false }
     );
   }
 }

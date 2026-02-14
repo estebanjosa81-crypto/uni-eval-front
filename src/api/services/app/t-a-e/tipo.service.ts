@@ -15,8 +15,6 @@ export interface Tipo {
 	id: number;
 	nombre: string;
 	descripcion?: string | null;
-	es_evaluacion?: boolean | null;
-	es_activo?: boolean | null;
 	fecha_creacion?: string | null;
 	fecha_actualizacion?: string | null;
 }
@@ -40,15 +38,11 @@ export interface ConfiguracionTipoRol {
 export interface CreateTipoInput {
 	nombre: string;
 	descripcion?: string | null;
-	es_evaluacion?: boolean;
-	es_activo?: boolean;
 }
 
 export interface UpdateTipoInput {
 	nombre?: string;
 	descripcion?: string | null;
-	es_evaluacion?: boolean;
-	es_activo?: boolean;
 }
 
 export interface CreateCategoriaTipoInput {
@@ -90,8 +84,6 @@ export interface CreateCategoriaTipoMapInput {
 		id?: number;
 		nombre?: string;
 		descripcion?: string | null;
-		es_evaluacion?: boolean;
-		es_activo?: boolean;
 	}>;
 }
 

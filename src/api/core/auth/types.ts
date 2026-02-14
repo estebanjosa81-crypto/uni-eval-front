@@ -26,6 +26,8 @@ export interface User {
   rolesAuthIds: number[];
   rolesApp: Role[];
   rolesAppIds: number[];
+  roles?: string[];
+  rolesIds?: number[];
 }
 
 // ========================

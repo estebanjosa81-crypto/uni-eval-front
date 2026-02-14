@@ -118,23 +118,6 @@ export function CategoriaTipoMapView({
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1 flex-wrap">
-                        <h3 className="font-semibold text-lg">{tipo.nombre}</h3>
-                        <Badge
-                          variant={tipo.es_activo ? "default" : "destructive"}
-                          className="flex items-center gap-1"
-                        >
-                          {tipo.es_activo ? (
-                            <CheckCircle2 className="h-4 w-4" />
-                          ) : (
-                            <XCircle className="h-4 w-4" />
-                          )}
-                          {tipo.es_activo ? "Activo" : "Inactivo"}
-                        </Badge>
-                        {tipo.es_evaluacion && (
-                          <Badge variant="outline">Evaluación</Badge>
-                        )}
-                      </div>
                       <p className="text-sm text-muted-foreground">{tipo.descripcion}</p>
                     </div>
 

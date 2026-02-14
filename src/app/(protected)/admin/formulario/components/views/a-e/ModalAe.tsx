@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,19 @@ interface ModalAeProps {
   escalas: Escala[];
 }
 
+interface AspectoEnriquecido extends Aspecto {
+  cfg_t_id: number;
+  tipo_evaluacion: string;
+  es_configuracion_actual: boolean;
+}
+
+interface EscalaEnriquecida extends Escala {
+  cfg_t_id: number;
+  tipo_evaluacion: string;
+  puntaje: number;
+  es_configuracion_actual: boolean;
+}
+
 interface AspectoState {
   id: number;
   selected: boolean;
@@ -53,7 +67,7 @@ interface AeItemState {
   aspectos: AspectoState[];
 }
 
-const createAspectosState = (aspectos: Aspecto[]): AspectoState[] =>
+const createAspectosState = (aspectos: AspectoEnriquecido[]): AspectoState[] =>
   aspectos.map((a) => ({
     id: a.id,
     selected: false,
@@ -61,7 +75,7 @@ const createAspectosState = (aspectos: Aspecto[]): AspectoState[] =>
     es_cmt_oblig: false,
   }));
 
-const createItem = (aspectos: Aspecto[], es_pregunta_abierta: boolean): AeItemState => ({
+const createItem = (aspectos: AspectoEnriquecido[], es_pregunta_abierta: boolean): AeItemState => ({
   id: `${Date.now()}-${Math.random()}`,
   es_pregunta_abierta,
   escalaIds: [],
@@ -75,8 +89,8 @@ export function ModalAe({ isOpen, onClose, onSuccess, cfgTId, aspectos, escalas 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(false);
-  const [aspectosConfigurados, setAspectosConfigurados] = useState<Aspecto[]>([]);
-  const [escalasConfiguradas, setEscalasConfiguradas] = useState<Escala[]>([]);
+  const [aspectosConfigurados, setAspectosConfigurados] = useState<AspectoEnriquecido[]>([]);
+  const [escalasConfiguradas, setEscalasConfiguradas] = useState<EscalaEnriquecida[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -94,26 +108,67 @@ export function ModalAe({ isOpen, onClose, onSuccess, cfgTId, aspectos, escalas 
         return;
       }
 
-      const response = await configuracionEvaluacionService.getCfgACfgE(cfgTId);
-      if (response.success && response.data) {
-        const aspectosCfg = response.data.cfg_a
-          .filter((a) => a.es_activo)
-          .sort((a, b) => Number(a.orden) - Number(b.orden))
-          .map((a) => ({
-            id: a.id,
-            nombre: a.aspecto.nombre,
-            descripcion: a.aspecto.descripcion,
-          }));
+      // Obtener el banco global de cfg_a y cfg_e (sin id)
+      const response = await configuracionEvaluacionService.getCfgACfgE();
+      if (response.success && response.data && Array.isArray(response.data)) {
+        // Consolidar todos los aspectos y escalas únicos de todas las configuraciones
+        const aspectosMap = new Map<number, AspectoEnriquecido>();
+        const escalasMap = new Map<number, EscalaEnriquecida>();
 
-        const escalasCfg = response.data.cfg_e
-          .filter((e) => e.es_activo)
-          .sort((a, b) => Number(a.orden) - Number(b.orden))
-          .map((e) => ({
-            id: e.id,
-            sigla: e.escala.sigla,
-            nombre: e.escala.nombre,
-            descripcion: e.escala.descripcion,
-          }));
+        response.data.forEach((config) => {
+          const tipoEvalNombre = config.tipo_evaluacion?.tipo?.nombre || 'Sin tipo';
+          const categoriaNombre = config.tipo_evaluacion?.categoria?.nombre || '';
+          const tipoCompleto = categoriaNombre ? `${categoriaNombre} - ${tipoEvalNombre}` : tipoEvalNombre;
+
+          // Agregar aspectos únicos
+          config.cfg_a
+            .filter((a) => a.es_activo)
+            .forEach((a) => {
+              if (!aspectosMap.has(a.id)) {
+                aspectosMap.set(a.id, {
+                  id: a.id,
+                  nombre: a.aspecto.nombre,
+                  descripcion: a.aspecto.descripcion,
+                  cfg_t_id: a.cfg_t_id,
+                  tipo_evaluacion: tipoCompleto,
+                  es_configuracion_actual: a.cfg_t_id === cfgTId,
+                });
+              }
+            });
+
+          // Agregar escalas únicas
+          config.cfg_e
+            .filter((e) => e.es_activo)
+            .forEach((e) => {
+              if (!escalasMap.has(e.id)) {
+                escalasMap.set(e.id, {
+                  id: e.id,
+                  sigla: e.escala.sigla,
+                  nombre: e.escala.nombre,
+                  descripcion: e.escala.descripcion,
+                  cfg_t_id: e.cfg_t_id,
+                  tipo_evaluacion: tipoCompleto,
+                  puntaje: e.puntaje,
+                  es_configuracion_actual: e.cfg_t_id === cfgTId,
+                });
+              }
+            });
+        });
+
+        const aspectosCfg = Array.from(aspectosMap.values()).sort((a, b) => {
+          // Primero los de la configuración actual, luego por nombre
+          if (a.es_configuracion_actual !== b.es_configuracion_actual) {
+            return a.es_configuracion_actual ? -1 : 1;
+          }
+          return a.nombre.localeCompare(b.nombre);
+        });
+        const escalasCfg = Array.from(escalasMap.values()).sort((a, b) => {
+          // Primero los de la configuración actual, luego por nombre
+          if (a.es_configuracion_actual !== b.es_configuracion_actual) {
+            return a.es_configuracion_actual ? -1 : 1;
+          }
+          return a.nombre.localeCompare(b.nombre);
+        });
 
         setAspectosConfigurados(aspectosCfg);
         setEscalasConfiguradas(escalasCfg);
@@ -121,11 +176,15 @@ export function ModalAe({ isOpen, onClose, onSuccess, cfgTId, aspectos, escalas 
           createItem(aspectosCfg, false),
           createItem(aspectosCfg, true),
         ]);
+
+        if (aspectosCfg.length === 0 && escalasCfg.length === 0) {
+          setError("No hay aspectos o escalas configurados");
+        }
       } else {
         setAspectosConfigurados([]);
         setEscalasConfiguradas([]);
         setItems([]);
-        setError("No hay aspectos o escalas configurados para esta evaluación");
+        setError("No se pudo cargar el banco de aspectos y escalas");
       }
 
       setIsLoadingConfig(false);
@@ -315,15 +374,35 @@ export function ModalAe({ isOpen, onClose, onSuccess, cfgTId, aspectos, escalas 
                       {escalasConfiguradas.map((escala) => (
                         <label
                           key={escala.id}
-                          className="flex items-center gap-2 rounded-md border p-2 text-sm"
+                          className={`flex flex-col gap-1 rounded-md border p-2 text-sm cursor-pointer transition-colors ${
+                            escala.es_configuracion_actual 
+                              ? 'bg-primary/5 border-primary/40' 
+                              : 'hover:bg-muted/50'
+                          }`}
                         >
-                          <Checkbox
-                            checked={item.escalaIds.includes(escala.id)}
-                            onCheckedChange={() => toggleEscala(item.id, escala.id)}
-                          />
-                          <span>
-                            {escala.sigla} - {escala.nombre}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={item.escalaIds.includes(escala.id)}
+                              onCheckedChange={() => toggleEscala(item.id, escala.id)}
+                            />
+                            <span className="font-medium">
+                              {escala.sigla} - {escala.nombre}
+                            </span>
+                          </div>
+                          <div className="ml-6 flex flex-wrap items-center gap-1">
+                            {escala.es_configuracion_actual ? (
+                              <Badge variant="default" className="text-xs">
+                                Actual
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">
+                                {escala.tipo_evaluacion}
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              Puntaje: {escala.puntaje}
+                            </span>
+                          </div>
                         </label>
                       ))}
                     </div>
@@ -382,7 +461,10 @@ export function ModalAe({ isOpen, onClose, onSuccess, cfgTId, aspectos, escalas 
                         {item.aspectos.map((asp) => {
                           const aspecto = aspectosById.get(asp.id);
                           return (
-                            <TableRow key={asp.id}>
+                            <TableRow 
+                              key={asp.id}
+                              className={aspecto?.es_configuracion_actual ? 'bg-primary/5' : ''}
+                            >
                               <TableCell>
                                 <Checkbox
                                   checked={asp.selected}
@@ -393,8 +475,23 @@ export function ModalAe({ isOpen, onClose, onSuccess, cfgTId, aspectos, escalas 
                                   }
                                 />
                               </TableCell>
-                              <TableCell className="font-medium">
-                                {aspecto?.nombre ?? `Aspecto #${asp.id}`}
+                              <TableCell>
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-medium">
+                                    {aspecto?.nombre ?? `Aspecto #${asp.id}`}
+                                  </span>
+                                  {aspecto && (
+                                    aspecto.es_configuracion_actual ? (
+                                      <Badge variant="default" className="text-xs w-fit">
+                                        Actual
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="text-xs w-fit">
+                                        {aspecto.tipo_evaluacion}
+                                      </Badge>
+                                    )
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">

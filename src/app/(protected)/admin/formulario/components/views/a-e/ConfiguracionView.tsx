@@ -29,8 +29,10 @@ import type { PaginationMeta, PaginationParams } from "@/src/api/types/api.types
 import { ConfiguracionAspectoView } from "./ConfiguracionAspectoView";
 import { ConfiguracionEscalaView } from "./ConfiguracionEscalaView";
 import { AeView } from "./AeView";
+import { RolesConfiguracionView } from "./RolesConfiguracionView";
 import { ModalConfiguracionTipo } from "./ModalConfiguracionTipo";
 import { PaginationControls } from "../../PaginationControls";
+import { rolService, cfgTRolService, type RolMixto, type CfgTRol, type RolAsignado } from "@/src/api";
 
 interface ConfiguracionViewProps {
   aspectos: Aspecto[];
@@ -40,6 +42,7 @@ interface ConfiguracionViewProps {
   setModalAe: (value: any) => void;
   handleEliminarConfiguracion: (config: ConfiguracionTipo) => void;
   refreshData: () => void;
+  rolesDisponibles?: RolMixto[];
 }
 
 interface ConfigurationStep {
@@ -57,6 +60,7 @@ export function ConfiguracionView({
   setModalAe,
   handleEliminarConfiguracion,
   refreshData,
+  rolesDisponibles = [],
 }: ConfiguracionViewProps) {
   const { toast } = useToast();
   const [modalConfiguracionTipo, setModalConfiguracionTipo] = useState({
@@ -76,12 +80,17 @@ export function ConfiguracionView({
   const [configuracionAspectos, setConfiguracionAspectos] = useState<CfgAItem[]>([]);
   const [configuracionEscalas, setConfiguracionEscalas] = useState<CfgEItem[]>([]);
   
+  // Estados para roles
+  const [rolesAsignados, setRolesAsignados] = useState<RolAsignado[]>([]);
+  const [rolesDispList, setRolesDispList] = useState<RolMixto[]>(rolesDisponibles);
+  
   // Pasos del proceso
   const [steps, setSteps] = useState<ConfigurationStep[]>([
     { id: 1, title: "Crear Configuración", description: "Define tipo, fechas y opciones", completed: false },
     { id: 2, title: "Configurar Aspectos", description: "Selecciona y ordena los aspectos", completed: false },
     { id: 3, title: "Configurar Escalas", description: "Define puntajes y orden", completed: false },
     { id: 4, title: "Relación A/E", description: "Vincula aspectos con escalas", completed: false },
+    { id: 5, title: "Asignar Roles", description: "Define qué roles pueden usar esta evaluación", completed: false },
   ]);
 
   useEffect(() => {
@@ -93,6 +102,12 @@ export function ConfiguracionView({
       loadConfigDetails(selectedConfig.id);
     }
   }, [selectedConfig]);
+
+  useEffect(() => {
+    if (rolesDisponibles.length > 0) {
+      setRolesDispList(rolesDisponibles);
+    }
+  }, [rolesDisponibles]);
 
   const extractItems = <T,>(payload: any): T[] => {
     if (Array.isArray(payload)) return payload as T[];
@@ -223,20 +238,30 @@ export function ConfiguracionView({
       setConfiguracionEscalas(cfgE);
 
       if (aeResponse.success && aeResponse.data) {
-        setAspectosConEscalas(aeResponse.data);
+        setAspectosConEscalas(aeResponse.data.aspectos);
       } else {
         setAspectosConEscalas([]);
       }
 
       const hasAE = aeResponse.success && aeResponse.data
-        ? aeResponse.data.some((a) => a.opciones.length > 0)
+        ? aeResponse.data.aspectos.some((a: AspectoConEscalas) => a.opciones.length > 0)
         : false;
+
+      // Cargar roles asignados
+      const rolesResponse = await cfgTRolService.getRolesByConfiguracion(configId);
+      const hasRoles = rolesResponse.success && rolesResponse.data && rolesResponse.data.length > 0;
+      if (hasRoles) {
+        setRolesAsignados(rolesResponse.data);
+      } else {
+        setRolesAsignados([]);
+      }
 
       updateSteps(
         true,
         cfgA.length > 0,
         cfgE.length > 0,
-        hasAE
+        hasAE,
+        hasRoles
       );
     } catch (error) {
       console.error("Error loading config details:", error);
@@ -246,12 +271,13 @@ export function ConfiguracionView({
     }
   };
 
-  const updateSteps = (hasConfig: boolean, hasAspectos: boolean, hasEscalas: boolean, hasAE: boolean) => {
+  const updateSteps = (hasConfig: boolean, hasAspectos: boolean, hasEscalas: boolean, hasAE: boolean, hasRoles: boolean = false) => {
     setSteps([
       { id: 1, title: "Crear Configuración", description: "Define tipo, fechas y opciones", completed: hasConfig },
       { id: 2, title: "Configurar Aspectos", description: "Selecciona y ordena los aspectos", completed: hasAspectos },
       { id: 3, title: "Configurar Escalas", description: "Define puntajes y orden", completed: hasEscalas },
       { id: 4, title: "Relación A/E", description: "Vincula aspectos con escalas", completed: hasAE },
+      { id: 5, title: "Asignar Roles", description: "Define qué roles pueden usar esta evaluación", completed: hasRoles },
     ]);
   };
 
@@ -313,6 +339,13 @@ export function ConfiguracionView({
     refreshData();
   };
 
+  const handleRolesUpdated = () => {
+    if (selectedConfig) {
+      loadConfigDetails(selectedConfig.id);
+    }
+    refreshData();
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -331,7 +364,7 @@ export function ConfiguracionView({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {steps.map((step, index) => (
               <div key={step.id} className="relative">
                 <div className={`p-4 rounded-lg border-2 transition-colors ${
@@ -522,10 +555,11 @@ export function ConfiguracionView({
             </Card>
           ) : (
             <Tabs defaultValue="aspectos" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="aspectos">Aspectos</TabsTrigger>
                 <TabsTrigger value="escalas">Escalas</TabsTrigger>
                 <TabsTrigger value="a-e">Relación A/E</TabsTrigger>
+                <TabsTrigger value="roles">Roles</TabsTrigger>
               </TabsList>
 
               <TabsContent value="aspectos" className="mt-6">
@@ -561,7 +595,20 @@ export function ConfiguracionView({
               <TabsContent value="a-e" className="mt-6">
                 <AeView
                   aspectosConEscalas={aspectosConEscalas}
+                  configuracionAspectos={configuracionAspectos}
+                  cfgTId={selectedConfig.id}
                   setModalAe={() => setModalAe({ isOpen: true, cfgTId: selectedConfig.id })}
+                  onConfigUpdated={handleAspectosConfigured}
+                />
+              </TabsContent>
+
+              <TabsContent value="roles" className="mt-6">
+                <RolesConfiguracionView
+                  cfgTId={selectedConfig.id}
+                  rolesAsignados={rolesAsignados}
+                  rolesDisponibles={rolesDispList}
+                  onRoleAdded={handleRolesUpdated}
+                  onRoleRemoved={handleRolesUpdated}
                 />
               </TabsContent>
             </Tabs>

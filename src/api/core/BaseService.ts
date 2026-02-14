@@ -19,8 +19,18 @@ export class BaseService<T extends { id: number }, CreateInput = Partial<T>, Upd
    * GET all con paginación opcional
    */
   async getAll(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<T>>> {
+    return this.getAllFrom(this.baseUrl, params);
+  }
+
+  /**
+   * GET all con paginación para endpoint custom
+   */
+  protected async getAllFrom(
+    endpoint: string,
+    params?: PaginationParams
+  ): Promise<ApiResponse<PaginatedResponse<T>>> {
     try {
-      const response = await httpClient.getWithMeta<any>(this.baseUrl, {
+      const response = await httpClient.getWithMeta<any>(endpoint, {
         params,
       });
 

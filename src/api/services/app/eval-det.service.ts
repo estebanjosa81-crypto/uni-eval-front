@@ -35,6 +35,7 @@ export interface EvalDetBulkItem {
 export interface EvalDetBulkSaveRequest {
   eval_id: number;
   items: EvalDetBulkItem[];
+  cmt_gen?: string | null;
 }
 
 export interface EvalDetBulkSaveResponse {
