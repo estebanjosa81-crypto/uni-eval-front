@@ -190,7 +190,13 @@ export default function EstudianteBienvenida() {
           variant: "default",
         })
 
-        router.push(`/estudiante/dashboard/${configId}`)
+        if (configuracion.es_evaluacion) {
+          router.push(`/estudiante/dashboard/${configId}`)
+        } else {
+          const firstEvalId = evaluacionesExistentes[0]?.id
+          const query = firstEvalId ? `?evalId=${firstEvalId}` : ""
+          router.push(`/estudiante/evaluar/${configId}${query}`)
+        }
         return
       }
 
@@ -219,6 +225,15 @@ export default function EstudianteBienvenida() {
         description: `Se crearon ${response.data.length} evaluaciones correctamente.`,
         variant: "default",
       })
+
+      if (!configuracion.es_evaluacion) {
+        const firstEvalId = evalsAfterResponse?.data?.[0]?.id
+        const query = firstEvalId ? `?evalId=${firstEvalId}` : ""
+        setIsCreatingEvaluaciones(false)
+        setModalEvaluacionesOpen(false)
+        router.push(`/estudiante/evaluar/${configId}${query}`)
+        return
+      }
 
       await new Promise(resolve => setTimeout(resolve, 1200))
       setIsCreatingEvaluaciones(false)

@@ -107,6 +107,8 @@ export default function EvaluacionCard({
   );
 
   const tieneEvaluaciones = evaluaciones.length > 0;
+  const encuestaFinalizada =
+    !configuracion.es_evaluacion && Boolean(evaluaciones[0]?.es_finalizada);
 
   const titulo =
     configuracion.tipo_evaluacion?.tipo.nombre ||
@@ -146,8 +148,17 @@ export default function EvaluacionCard({
       <Card className="relative h-full rounded-3xl border-2 bg-white shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
         {/* ---------- Header ---------- */}
         <CardHeader className="space-y-4 pb-4">
-          {/* Título */}
-          <div className="flex-1 min-w-0 flex items-center justify-center">
+          {/* Titulo */}
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Badge
+              className={
+                configuracion.es_evaluacion
+                  ? "bg-blue-600 text-white"
+                  : "bg-amber-500 text-white"
+              }
+            >
+              {configuracion.es_evaluacion ? "Evaluacion" : "Encuesta"}
+            </Badge>
             <CardTitle className="text-lg md:text-2xl font-bold leading-tight break-words">
               {titulo}
             </CardTitle>
@@ -212,17 +223,30 @@ export default function EvaluacionCard({
           {/* CTA */}
           <Button
             size="lg"
-            className="w-full rounded-2xl text-base md:text-lg font-bold py-6 md:py-7 shadow-lg hover:shadow-xl transition-all"
-            disabled={!vigente && !tieneEvaluaciones}
+            className={`w-full rounded-2xl text-base md:text-lg font-bold py-6 md:py-7 shadow-lg hover:shadow-xl transition-all ${
+              encuestaFinalizada
+                ? "bg-green-600 hover:bg-green-600 text-white"
+                : ""
+            }`}
+            disabled={encuestaFinalizada || (!vigente && !tieneEvaluaciones)}
             onClick={() => onIniciar(configuracion)}
           >
-            {tieneEvaluaciones ? (
+            {encuestaFinalizada ? (
               <div className="flex items-center gap-2 md:gap-3">
                 <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6" />
-                <span>Iniciar evaluación</span>
+                <span>Respondida</span>
+              </div>
+            ) : tieneEvaluaciones ? (
+              <div className="flex items-center gap-2 md:gap-3">
+                <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6" />
+                <span>
+                  {configuracion.es_evaluacion
+                    ? "Iniciar evaluacion"
+                    : "Responder encuesta"}
+                </span>
               </div>
             ) : vigente ? (
-              "Generar evaluación"
+              configuracion.es_evaluacion ? "Generar evaluacion" : "Generar encuesta"
             ) : (
               "No disponible"
             )}

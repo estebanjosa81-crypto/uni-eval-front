@@ -64,6 +64,7 @@ export default function EvaluarDocentePage({ params }: { params: Promise<{ id: s
 
   const [selecciones, setSelecciones] = useState<Record<number, number>>({});
   const [comentariosAspecto, setComentariosAspecto] = useState<Record<number, string>>({});
+  const [respuestasAbiertas, setRespuestasAbiertas] = useState<Record<number, string>>({});
   const [comentarioGeneral, setComentarioGeneral] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
@@ -115,8 +116,19 @@ export default function EvaluarDocentePage({ params }: { params: Promise<{ id: s
     fetchData();
   }, [configId, searchParams, toast]);
 
+  const isAspectoSinEscala = (aspecto: ConfiguracionAspectosEscalasResponse["aspectos"][number]) =>
+    !aspecto.opciones?.length || aspecto.opciones.every((op) => !op.sigla && !op.nombre && !op.descripcion);
+
   const totalAspectos = config?.aspectos.length || 0;
-  const respondidos = useMemo(() => Object.keys(selecciones).length, [selecciones]);
+  const respondidos = useMemo(() => {
+    if (!config) return 0;
+    return config.aspectos.reduce((count, aspecto) => {
+      if (isAspectoSinEscala(aspecto)) {
+        return respuestasAbiertas[aspecto.id]?.trim() ? count + 1 : count;
+      }
+      return selecciones[aspecto.id] ? count + 1 : count;
+    }, 0);
+  }, [config, respuestasAbiertas, selecciones]);
   const progreso = totalAspectos ? Math.round((respondidos / totalAspectos) * 100) : 0;
 
   const handleSeleccion = (aspectoId: number, opcionId: number) => {
@@ -128,8 +140,26 @@ export default function EvaluarDocentePage({ params }: { params: Promise<{ id: s
 
     setFieldErrors({});
 
-    const todosEvaluados = config.aspectos.every((a) => selecciones[a.id]);
+    const nextErrors: Record<string, string[]> = {};
+    const todosEvaluados = config.aspectos.every((a) => {
+      if (isAspectoSinEscala(a)) {
+        const respuesta = respuestasAbiertas[a.id]?.trim();
+        if (!respuesta) {
+          nextErrors[`texto_${a.id}`] = ["Respuesta requerida"];
+          return false;
+        }
+
+        const aEId = a.opciones?.[0]?.a_e_id;
+        if (!aEId) {
+          nextErrors[`texto_${a.id}`] = ["No se pudo identificar el aspecto"];
+          return false;
+        }
+        return true;
+      }
+      return Boolean(selecciones[a.id]);
+    });
     if (!todosEvaluados) {
+      setFieldErrors((prev) => ({ ...prev, ...nextErrors }));
       toast({
         title: "Evaluación incompleta",
         description: "Debes responder todos los aspectos",
@@ -165,6 +195,14 @@ export default function EvaluarDocentePage({ params }: { params: Promise<{ id: s
     try {
       // Construir los items para el bulk save
       const items = config.aspectos.map((aspecto) => {
+        if (isAspectoSinEscala(aspecto)) {
+          const aEId = aspecto.opciones?.[0]?.a_e_id || 0;
+          return {
+            a_e_id: aEId,
+            cmt: respuestasAbiertas[aspecto.id]?.trim() || null,
+          };
+        }
+
         const opcionSeleccionadaId = selecciones[aspecto.id];
         const opcionSeleccionada = aspecto.opciones.find((op) => op.id === opcionSeleccionadaId);
 
@@ -191,7 +229,11 @@ export default function EvaluarDocentePage({ params }: { params: Promise<{ id: s
       if (response.success) {
         setFieldErrors({});
         toast({ title: "Evaluación enviada" });
-        router.push(`/estudiante/dashboard/${configId}`);
+        if (config.es_evaluacion) {
+          router.push(`/estudiante/dashboard/${configId}`);
+        } else {
+          router.push("/estudiante/bienvenida");
+        }
       } else {
         const details = Array.isArray(response.error?.details) ? response.error.details : [];
         if (details.length) {
@@ -282,6 +324,8 @@ export default function EvaluarDocentePage({ params }: { params: Promise<{ id: s
             const comentarioErrors = selectedAeId
               ? fieldErrors[`cmt_${selectedAeId}`] || []
               : [];
+            const respuestaErrors = fieldErrors[`texto_${aspecto.id}`] || [];
+            const esSinEscala = isAspectoSinEscala(aspecto);
 
             return (
               <motion.div
@@ -308,29 +352,49 @@ export default function EvaluarDocentePage({ params }: { params: Promise<{ id: s
                   {abierto && (
                     <CardContent className="border-t space-y-6">
 
-                      <RadioGroup
-                        value={selecciones[aspecto.id]?.toString() || ""}
-                        onValueChange={(v) => handleSeleccion(aspecto.id, Number(v))}
-                      >
-                        {aspecto.opciones.map((op) => (
-                          <Label
-                            key={op.id}
-                            htmlFor={`op-${op.id}`}
-                            className="flex items-center justify-between border rounded-xl p-4 cursor-pointer hover:bg-gray-50 transition"
-                          >
-                            <div>
-                              <p className="font-medium">
-                                {op.sigla} - {op.nombre}
-                              </p>
-                              <p className="text-xs text-gray-500">{op.descripcion}</p>
+                      {esSinEscala ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            placeholder="Escribe tu respuesta..."
+                            value={respuestasAbiertas[aspecto.id] || ""}
+                            onChange={(e) =>
+                              setRespuestasAbiertas((prev) => ({
+                                ...prev,
+                                [aspecto.id]: e.target.value,
+                              }))
+                            }
+                          />
+                          {respuestaErrors.length > 0 && (
+                            <div className="text-sm text-red-600">
+                              {respuestaErrors[0]}
                             </div>
+                          )}
+                        </div>
+                      ) : (
+                        <RadioGroup
+                          value={selecciones[aspecto.id]?.toString() || ""}
+                          onValueChange={(v) => handleSeleccion(aspecto.id, Number(v))}
+                        >
+                          {aspecto.opciones.map((op) => (
+                            <Label
+                              key={op.id}
+                              htmlFor={`op-${op.id}`}
+                              className="flex items-center justify-between border rounded-xl p-4 cursor-pointer hover:bg-gray-50 transition"
+                            >
+                              <div>
+                                <p className="font-medium">
+                                  {op.sigla} - {op.nombre}
+                                </p>
+                                <p className="text-xs text-gray-500">{op.descripcion}</p>
+                              </div>
 
-                            <RadioGroupItem value={String(op.id)} id={`op-${op.id}`} />
-                          </Label>
-                        ))}
-                      </RadioGroup>
+                              <RadioGroupItem value={String(op.id)} id={`op-${op.id}`} />
+                            </Label>
+                          ))}
+                        </RadioGroup>
+                      )}
 
-                      {aspecto.es_cmt && (
+                      {!esSinEscala && aspecto.es_cmt && (
                         <div className="space-y-2">
                           <Textarea
                             placeholder="Comentario del aspecto..."

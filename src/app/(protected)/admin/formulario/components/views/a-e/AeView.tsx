@@ -334,70 +334,98 @@ export function AeView({
               {expandedAspecto === aspecto.id && (
                 <div className="border-t bg-muted/30 p-4">
                   <div className="space-y-3">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase">
-                      Escalas de Evaluación
-                    </p>
-                    {aspecto.opciones.length === 0 ? (
-                      <p className="text-sm text-muted-foreground italic">
-                        No hay opciones configuradas
-                      </p>
-                    ) : (
-                      <div className="grid gap-2">
-                        {aspecto.opciones.map((opcion) => (
-                          <div
-                            key={opcion.id}
-                            className="p-3 rounded-lg border border-muted-foreground/20 bg-background"
-                          >
-                            <div className="flex items-start justify-between mb-1">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="font-mono">
-                                  {opcion.sigla}
-                                </Badge>
-                                <h4 className="font-semibold text-sm">
-                                  {opcion.nombre}
-                                </h4>
-                                {opcion.puntaje && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {opcion.puntaje} pts
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <p className="text-xs text-muted-foreground mr-2">
-                                  Orden: {opcion.orden}
-                                </p>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditOpcionId(opcion.a_e_id);
-                                  }}
-                                  title="Editar opción"
-                                >
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteOpcionId(opcion.a_e_id);
-                                  }}
-                                  title="Eliminar opción"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                            {opcion.descripcion && (
-                              <p className="text-xs text-muted-foreground">
-                                {opcion.descripcion}
-                              </p>
+                    {/* Verificar si es un aspecto sin escalas (solo comentarios) */}
+                    {aspecto.opciones.length === 1 && aspecto.opciones[0].id === null ? (
+                      <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                            <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                              📝 Aspecto sin escalas (Solo comentarios)
+                            </p>
+                            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                              Este aspecto está configurado para recibir únicamente comentarios de texto, sin calificación numérica.
+                            </p>
+                            {aspecto.es_cmt_oblig && (
+                              <Badge variant="destructive" className="mt-2 text-xs">
+                                Comentario obligatorio
+                              </Badge>
                             )}
                           </div>
-                        ))}
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase">
+                          Escalas de Evaluación
+                        </p>
+                        {aspecto.opciones.length === 0 ? (
+                          <p className="text-sm text-muted-foreground italic">
+                            No hay opciones configuradas
+                          </p>
+                        ) : (
+                          <div className="grid gap-2">
+                            {aspecto.opciones.map((opcion) => (
+                              <div
+                                key={opcion.id}
+                                className="p-3 rounded-lg border border-muted-foreground/20 bg-background"
+                              >
+                                <div className="flex items-start justify-between mb-1">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="font-mono">
+                                      {opcion.sigla}
+                                    </Badge>
+                                    <h4 className="font-semibold text-sm">
+                                      {opcion.nombre}
+                                    </h4>
+                                    {opcion.puntaje && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        {opcion.puntaje} pts
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs text-muted-foreground mr-2">
+                                      Orden: {opcion.orden}
+                                    </p>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditOpcionId(opcion.a_e_id);
+                                      }}
+                                      title="Editar opción"
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteOpcionId(opcion.a_e_id);
+                                      }}
+                                      title="Eliminar opción"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                {opcion.descripcion && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {opcion.descripcion}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

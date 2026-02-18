@@ -62,6 +62,14 @@ const chartConfig: ChartConfig = {
   },
 };
 
+// Función para simplificar nombres de programas en el eje X
+const simplificarNombrePrograma = (nombre: string): string => {
+  if (!nombre) return nombre;
+  return nombre
+    .replace(/TECNOLOGIA/gi, "TEC")
+    .replace(/INGENIERIA/gi, "ING");
+};
+
 export default function GraficaPrograma({
   datos,
   filters,
@@ -249,9 +257,10 @@ export default function GraficaPrograma({
       const pendientes = metricas.total_pendientes;
       const total = metricas.total_evaluaciones;
       const porcentaje = total > 0 ? Math.round((completadas / total) * 100) : 0;
+      const nombreSimplificado = simplificarNombrePrograma(item.nombre);
       
       return {
-        name: item.nombre.length > 15 ? item.nombre.substring(0, 15) + '...' : item.nombre,
+        name: nombreSimplificado.length > 15 ? nombreSimplificado.substring(0, 15) + '...' : nombreSimplificado,
         programaCompleto: item.nombre,
         completadas,
         pendientes,

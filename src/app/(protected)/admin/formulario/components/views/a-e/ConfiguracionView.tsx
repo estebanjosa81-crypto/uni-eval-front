@@ -15,23 +15,18 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   configuracionEvaluacionService,
-  tipoService,
-  categoriaTipoService,
   type ConfiguracionTipo,
-  type Tipo,
   type Aspecto,
   type Escala,
   type AspectoConEscalas,
   type CfgAItem,
   type CfgEItem,
 } from "@/src/api";
-import type { PaginationMeta, PaginationParams } from "@/src/api/types/api.types";
 import { ConfiguracionAspectoView } from "./ConfiguracionAspectoView";
 import { ConfiguracionEscalaView } from "./ConfiguracionEscalaView";
 import { AeView } from "./AeView";
 import { RolesConfiguracionView } from "./RolesConfiguracionView";
 import { ModalConfiguracionTipo } from "./ModalConfiguracionTipo";
-import { PaginationControls } from "../../PaginationControls";
 import { rolService, cfgTRolService, type RolMixto, type CfgTRol, type RolAsignado } from "@/src/api";
 
 interface ConfiguracionViewProps {
@@ -70,10 +65,6 @@ export function ConfiguracionView({
   
   const [configuraciones, setConfiguraciones] = useState<ConfiguracionTipo[]>([]);
   const [selectedConfig, setSelectedConfig] = useState<ConfiguracionTipo | null>(null);
-  const [tiposById, setTiposById] = useState<Map<number, Tipo>>(new Map());
-  const [categoriasPorTipo, setCategoriaPorTipo] = useState<Map<number, string>>(new Map());
-  const [configPagination, setConfigPagination] = useState<PaginationMeta | null>(null);
-  const [configParams, setConfigParams] = useState<PaginationParams>({ page: 1, limit: 10 });
   
   // Estados para las configuraciones de aspectos y escalas
   const [aspectosConEscalas, setAspectosConEscalas] = useState<AspectoConEscalas[]>([]);
@@ -95,7 +86,7 @@ export function ConfiguracionView({
 
   useEffect(() => {
     loadData();
-  }, [configParams.page, configParams.limit]);
+  }, []); // Solo cargar una vez al montar el componente
 
   useEffect(() => {
     if (selectedConfig) {
@@ -116,31 +107,12 @@ export function ConfiguracionView({
     return [];
   };
 
-  const extractPagination = (payload: any): PaginationMeta | null => {
-    if (payload?.pagination) return payload.pagination as PaginationMeta;
-    if (payload?.meta) {
-      const meta = payload.meta;
-      const totalPages = meta.pages ?? meta.totalPages ?? 1;
-      const page = meta.page ?? 1;
-      return {
-        page,
-        limit: meta.limit ?? 10,
-        total: meta.total ?? 0,
-        totalPages,
-        hasNextPage: meta.hasNext ?? meta.hasNextPage ?? page < totalPages,
-        hasPreviousPage: meta.hasPrev ?? meta.hasPreviousPage ?? page > 1,
-      };
-    }
-    return null;
-  };
-
   const loadData = async () => {
     try {
-      // Cargar configuraciones
-      const configResponse = await configuracionEvaluacionService.getAll(configParams);
+      // Cargar configuraciones usando el endpoint /cfg/t/r que incluye tipo_evaluacion completo
+      const configResponse = await configuracionEvaluacionService.getAllByRole();
       if (configResponse.success && configResponse.data) {
         const configs = extractItems<ConfiguracionTipo>(configResponse.data);
-        setConfigPagination(extractPagination(configResponse.data));
         setConfiguraciones(configs);
         
         // Seleccionar la primera configuración si existe
@@ -148,79 +120,9 @@ export function ConfiguracionView({
           setSelectedConfig(configs[0]);
         }
       }
-      
-      // Cargar tipos para mostrar nombres
-      const tipos = await fetchAllTipos();
-      const tiposMap = new Map(tipos.map(t => [t.id, t]));
-      setTiposById(tiposMap);
     } catch (error) {
       console.error("Error loading data:", error);
     }
-  };
-
-  const fetchAllTipos = async (): Promise<Tipo[]> => {
-    const all: Tipo[] = [];
-    let page = 1;
-    const limit = 100;
-
-    while (true) {
-      const response = await tipoService.getAll({ page, limit });
-      if (!response.success || !response.data) {
-        break;
-      }
-
-      const batch = extractItems<Tipo>(response.data);
-      all.push(...batch);
-
-      const pagination = extractPagination(response.data);
-      if (!pagination || !pagination.hasNextPage) {
-        break;
-      }
-      page += 1;
-      if (page > (pagination.totalPages || page)) {
-        break;
-      }
-    }
-
-    return all;
-  };
-
-  const fetchAllCategorias = async (): Promise<Map<number, string>> => {
-    const categoriasMap = new Map<number, string>();
-    try {
-      const response = await categoriaTipoService.getAll();
-      if (response.success && response.data) {
-        const categorias = extractItems(response.data);
-        categorias.forEach((cat: any) => {
-          if (cat.id && cat.nombre) {
-            categoriasMap.set(cat.id, cat.nombre);
-          }
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    }
-    return categoriasMap;
-  };
-
-  const getTipoCategoria = async (tipoId: number): Promise<string> => {
-    try {
-      const response = await categoriaTipoService.getTiposByCategoria(tipoId);
-      if (response.success && response.data) {
-        return response.data.categoria_id?.toString() || "Sin categoría";
-      }
-    } catch (error) {
-      console.error("Error fetching tipo categoria:", error);
-    }
-    return "Sin categoría";
-  };
-
-  const handleConfigPageChange = (page: number) => {
-    setConfigParams((prev) => ({ ...prev, page }));
-  };
-
-  const handleConfigLimitChange = (limit: number) => {
-    setConfigParams({ page: 1, limit });
   };
 
   const loadConfigDetails = async (configId: number) => {
@@ -230,8 +132,13 @@ export function ConfiguracionView({
         configuracionEvaluacionService.getAspectosConEscalas(configId),
       ]);
 
-      const cfgA = cfgResponse.success && cfgResponse.data ? cfgResponse.data.cfg_a : [];
-      const cfgE = cfgResponse.success && cfgResponse.data ? cfgResponse.data.cfg_e : [];
+      // Verificar que la respuesta sea un objeto y no un array
+      const cfgData = cfgResponse.success && cfgResponse.data && !Array.isArray(cfgResponse.data) 
+        ? cfgResponse.data 
+        : null;
+      
+      const cfgA = cfgData ? cfgData.cfg_a : [];
+      const cfgE = cfgData ? cfgData.cfg_e : [];
 
       // Ya no necesitamos mapear, usamos los datos directamente del API
       setConfiguracionAspectos(cfgA);
@@ -427,7 +334,6 @@ export function ConfiguracionView({
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {configuraciones.map((config) => {
-                  const tipo = tiposById.get(config.tipo_evaluacion_id);
                   const isSelected = selectedConfig?.id === config.id;
                   
                   return (
@@ -445,7 +351,7 @@ export function ConfiguracionView({
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-sm truncate">
-                              {tipo?.nombre || `Tipo #${config.tipo_evaluacion_id}`}
+                              {config.tipo_evaluacion?.tipo?.nombre || `Tipo #${config.tipo_evaluacion_id}`}
                             </h4>
                             <p className="text-xs text-muted-foreground">ID: {config.id}</p>
                           </div>
@@ -530,11 +436,6 @@ export function ConfiguracionView({
                     </div>
                   );
                 })}
-                <PaginationControls
-                  pagination={configPagination}
-                  onPageChange={handleConfigPageChange}
-                  onLimitChange={handleConfigLimitChange}
-                />
               </div>
             )}
           </CardContent>

@@ -59,6 +59,7 @@ export function ModalConfiguracionTipo({
     tipo_evaluacion_id: 0,
     fecha_inicio: "",
     fecha_fin: "",
+    es_evaluacion: true,
     es_cmt_gen: true,
     es_cmt_gen_oblig: true,
     es_activo: true,
@@ -73,6 +74,7 @@ export function ModalConfiguracionTipo({
         tipo_evaluacion_id: configuracion.tipo_evaluacion_id,
         fecha_inicio: configuracion.fecha_inicio?.split('T')[0] || "",
         fecha_fin: configuracion.fecha_fin?.split('T')[0] || "",
+        es_evaluacion: configuracion.es_evaluacion ?? true,
         es_cmt_gen: configuracion.es_cmt_gen ?? true,
         es_cmt_gen_oblig: configuracion.es_cmt_gen_oblig ?? true,
         es_activo: configuracion.es_activo ?? true,
@@ -82,6 +84,7 @@ export function ModalConfiguracionTipo({
         tipo_evaluacion_id: 0,
         fecha_inicio: "",
         fecha_fin: "",
+        es_evaluacion: true,
         es_cmt_gen: true,
         es_cmt_gen_oblig: true,
         es_activo: true,
@@ -121,13 +124,13 @@ export function ModalConfiguracionTipo({
     }
   };
 
-  const findAndSetCategoriaForTipo = async (cats: CategoriaTipo[], tipoId: number) => {
+  const findAndSetCategoriaForTipo = async (cats: CategoriaTipo[], mapId: number) => {
     try {
-      // Buscar en todas las categorías cuál contiene este tipo
+      // Buscar en todas las categorías cuál contiene este map_id
       for (const cat of cats) {
         const response = await categoriaTipoMapService.listTiposByCategoria(cat.id);
         if (response.success && response.data?.items) {
-          const tipoExiste = response.data.items.some((t) => t.id === tipoId);
+          const tipoExiste = response.data.items.some((t) => t.map_id === mapId);
           if (tipoExiste) {
             setSelectedCategoria(cat.id.toString());
             // No necesitamos cargar tipos aquí, el useEffect lo hará
@@ -245,7 +248,7 @@ export function ModalConfiguracionTipo({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tipo_evaluacion_id">Tipo de Evaluación *</Label>
+              <Label htmlFor="tipo_evaluacion_id">Tipo de Evaluación/Encuesta *</Label>
               <Select
                 value={formData.tipo_evaluacion_id.toString()}
                 onValueChange={(value) =>
@@ -258,7 +261,7 @@ export function ModalConfiguracionTipo({
                 </SelectTrigger>
                 <SelectContent>
                   {tipos.map((tipo) => (
-                    <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                    <SelectItem key={tipo.map_id} value={tipo.map_id.toString()}>
                       {tipo.nombre}
                     </SelectItem>
                   ))}
@@ -292,6 +295,22 @@ export function ModalConfiguracionTipo({
             </div>
 
             <div className="space-y-3 pt-2 border-t">
+              <h4 className="text-sm font-medium">Tipo de configuración</h4>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="es_evaluacion" className="cursor-pointer">
+                  Es evaluación
+                </Label>
+                <Switch
+                  id="es_evaluacion"
+                  checked={formData.es_evaluacion}
+                  onCheckedChange={(value) =>
+                    setFormData({ ...formData, es_evaluacion: value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t">
               <h4 className="text-sm font-medium">Opciones de comentarios</h4>
               <div className="flex items-center justify-between">
                 <Label htmlFor="es_cmt_gen" className="cursor-pointer">
@@ -304,7 +323,8 @@ export function ModalConfiguracionTipo({
                     setFormData({
                       ...formData,
                       es_cmt_gen: value,
-                      es_cmt_gen_oblig: formData.es_cmt_gen_oblig && value,
+                      // Si desactivamos es_cmt_gen, también desactivamos es_cmt_gen_oblig
+                      es_cmt_gen_oblig: value ? formData.es_cmt_gen_oblig : false,
                     })
                   }
                 />
@@ -316,11 +336,13 @@ export function ModalConfiguracionTipo({
                 <Switch
                   id="es_cmt_gen_oblig"
                   checked={formData.es_cmt_gen_oblig}
+                  disabled={!formData.es_cmt_gen}
                   onCheckedChange={(value) =>
                     setFormData({
                       ...formData,
                       es_cmt_gen_oblig: value,
-                      es_cmt_gen: formData.es_cmt_gen || value,
+                      // Si activamos es_cmt_gen_oblig, también activamos es_cmt_gen
+                      es_cmt_gen: value ? true : formData.es_cmt_gen,
                     })
                   }
                 />
