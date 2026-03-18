@@ -4,8 +4,6 @@ import { type Aspecto } from "@/src/api";
 import type { PaginationMeta } from "@/src/api/types/api.types";
 import { PaginationControls } from "../../PaginationControls";
 import { Edit, Trash2, Plus } from "lucide-react";
-import { useState } from "react";
-import { ModalConfirmacion } from "../../ModalConfirmacion";
 
 interface AspectosViewProps {
   aspectos: Aspecto[];
@@ -24,13 +22,6 @@ export function AspectosView({
   onPageChange,
   onLimitChange,
 }: AspectosViewProps) {
-  const [aspectoAEliminar, setAspectoAEliminar] = useState<Aspecto | null>(null);
-
-  const handleDelete = async () => {
-    if (!aspectoAEliminar) return;
-    await handleEliminarAspecto(aspectoAEliminar);
-    setAspectoAEliminar(null);
-  };
 
   return (
     <Card>
@@ -75,7 +66,7 @@ export function AspectosView({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setAspectoAEliminar(aspecto)}
+                    onClick={() => handleEliminarAspecto(aspecto)}
                     title="Eliminar"
                     className="hover:bg-muted hover:text-destructive"
                   >
@@ -94,13 +85,6 @@ export function AspectosView({
           />
         )}
       </CardContent>
-      <ModalConfirmacion
-        isOpen={Boolean(aspectoAEliminar)}
-        onClose={() => setAspectoAEliminar(null)}
-        onConfirm={handleDelete}
-        title="Eliminar aspecto"
-        description={`¿Seguro que deseas eliminar el aspecto "${aspectoAEliminar?.nombre || ""}"?`}
-      />
     </Card>
   );
 }

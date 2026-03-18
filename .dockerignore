@@ -1,0 +1,70 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Node
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.npm
+pnpm-debug.log
+
+# IDE
+.vscode
+.idea
+.DS_Store
+*.swp
+*.swo
+*~
+.editorconfig
+
+# Environment
+.env.local
+.env.*.local
+.env
+
+# Next.js
+.next/cache
+out
+dist
+build
+
+# Logs
+logs
+*.log
+
+# Testing
+coverage
+.nyc_output
+jest.config.js
+cypress
+
+# Documentation
+README.md
+CHANGELOG.md
+docs
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.circleci
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Configuration files are required for build
+# tsconfig.json
+# jsconfig.json
+# next.config.mjs
+# postcss.config.mjs
+# tailwind.config.ts
+# components.json
+
+# Other
+.turbo
+*.pem
+.env.example

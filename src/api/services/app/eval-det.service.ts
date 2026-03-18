@@ -5,6 +5,8 @@
 
 import { BaseService } from '../../core/BaseService';
 import type { ApiResponse } from '../../types/api.types';
+import { validateEvalDetBulkSave } from '../../validation/eval-det.validation';
+import type { EvalDetValidationContext } from '../../validation/eval-det.validation';
 
 export interface EvaluacionDetalle {
   id: number;
@@ -35,6 +37,7 @@ export interface EvalDetBulkItem {
 export interface EvalDetBulkSaveRequest {
   eval_id: number;
   items: EvalDetBulkItem[];
+  cmt_gen?: string | null;
 }
 
 export interface EvalDetBulkSaveResponse {
@@ -50,16 +53,23 @@ class EvaluacionDetalleService extends BaseService<
   UpdateEvaluacionDetalleInput
 > {
   constructor() {
-    super('/eval/det');
+    super('/eval/det', {
+      validators: {
+        bulk: validateEvalDetBulkSave,
+      },
+    });
   }
 
   /**
    * Guarda en bulk respuestas y comentarios
    * POST /eval/det/bulk
    */
-  async bulkSave(data: EvalDetBulkSaveRequest): Promise<ApiResponse<EvalDetBulkSaveResponse>> {
+  async bulkSave(
+    data: EvalDetBulkSaveRequest,
+    context?: EvalDetValidationContext
+  ): Promise<ApiResponse<EvalDetBulkSaveResponse>> {
     return this.executeAsync(
-      () => this.bulkCreate(data),
+      () => this.bulkCreate(data, { validationContext: context }),
       { message: 'Error al guardar evaluaciones', data: { count: 0 } }
     );
   }

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +12,6 @@ import { type CategoriaEscala } from "@/src/api";
 import { categoriaEscalaService } from "@/src/api";
 import type { PaginationMeta } from "@/src/api/types/api.types";
 import { PaginationControls } from "../../PaginationControls";
-import { ModalConfirmacion } from "../../ModalConfirmacion";
 
 interface CategoriaEscalaViewProps {
   categorias: CategoriaEscala[];
@@ -34,12 +32,6 @@ export function CategoriaEscalaView({
   onPageChange,
   onLimitChange,
 }: CategoriaEscalaViewProps) {
-  const [categoriaAEliminar, setCategoriaAEliminar] = useState<CategoriaEscala | null>(null);
-
-  const handleDelete = async () => {
-    if (!categoriaAEliminar) return;
-    await handleEliminarCategoriaEscala(categoriaAEliminar);
-  };
 
   return (
     <Card>
@@ -121,7 +113,7 @@ export function CategoriaEscalaView({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setCategoriaAEliminar(categoria)}
+                      onClick={() => handleEliminarCategoriaEscala(categoria)}
                       title="Eliminar"
                       className="hover:bg-muted hover:text-destructive"
                     >
@@ -139,13 +131,6 @@ export function CategoriaEscalaView({
           onLimitChange={onLimitChange}
         />
       </CardContent>
-      <ModalConfirmacion
-        isOpen={Boolean(categoriaAEliminar)}
-        onClose={() => setCategoriaAEliminar(null)}
-        onConfirm={handleDelete}
-        title="Eliminar categoría de escalas"
-        description={`¿Seguro que deseas eliminar la categoría "${categoriaAEliminar?.nombre || ""}"?`}
-      />
     </Card>
   );
 }

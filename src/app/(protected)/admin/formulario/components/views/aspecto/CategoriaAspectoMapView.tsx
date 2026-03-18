@@ -11,7 +11,8 @@ import {
 import { type CategoriaAspecto, type AspectoMapItem } from "@/src/api";
 import { categoriaAspectoMapService } from "@/src/api";
 import { useToast } from "@/hooks/use-toast";
-import { ModalConfirmacion } from "../../ModalConfirmacion";
+import { useDeleteConfirmation } from "../../../hooks";
+import { ConfirmDeleteDialog } from "../../../components/shared";
 
 interface CategoriaAspectoMapViewProps {
   categoria: CategoriaAspecto;
@@ -27,7 +28,16 @@ export function CategoriaAspectoMapView({
   const { toast } = useToast();
   const [aspectosAsociados, setAspectosAsociados] = useState<AspectoMapItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [aspectoAEliminar, setAspectoAEliminar] = useState<AspectoMapItem | null>(null);
+  
+  const { confirmationDialog, requestDeleteConfirmation } = useDeleteConfirmation({
+    onSuccess: () => {
+      cargarAspectos();
+      toast({
+        title: "Aspecto removido",
+        description: "El aspecto ha sido removido de la categoría",
+      });
+    },
+  });
 
   useEffect(() => {
     cargarAspectos();
@@ -51,17 +61,21 @@ export function CategoriaAspectoMapView({
     }
   };
 
-  const handleRemoverAspecto = async () => {
-    if (!aspectoAEliminar) return;
-    const response = await categoriaAspectoMapService.removeAspectoFromCategoria(
-      categoria.id,
-      aspectoAEliminar.id
+  const handleRemoverAspecto = (aspecto: AspectoMapItem) => {
+    requestDeleteConfirmation(
+      "Remover Aspecto de Categoría",
+      `¿Está seguro de remover "${aspecto.nombre}" de la categoría "${categoria.nombre}"?`,
+      async () => {
+        const response = await categoriaAspectoMapService.removeAspectoFromCategoria(
+          categoria.id,
+          aspecto.id
+        );
+        
+        if (!response.success) {
+          throw new Error(response.error?.message || "No se pudo remover el aspecto");
+        }
+      }
     );
-    
-    if (!response.success) {
-      throw new Error(response.error?.message || "No se pudo remover el aspecto");
-    }
-    await cargarAspectos();
   };
 
   return (
@@ -126,7 +140,7 @@ export function CategoriaAspectoMapView({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setAspectoAEliminar(aspecto)}
+                        onClick={() => handleRemoverAspecto(aspecto)}
                         title="Remover de categoría"
                         className="hover:bg-muted hover:text-destructive"
                       >
@@ -140,13 +154,7 @@ export function CategoriaAspectoMapView({
           </div>
         )}
       </CardContent>
-      <ModalConfirmacion
-        isOpen={Boolean(aspectoAEliminar)}
-        onClose={() => setAspectoAEliminar(null)}
-        onConfirm={handleRemoverAspecto}
-        title="Remover aspecto de categoría"
-        description={`¿Seguro que deseas remover el aspecto "${aspectoAEliminar?.nombre || ""}" de la categoría?`}
-      />
+      <ConfirmDeleteDialog {...confirmationDialog} />
     </Card>
   );
 }

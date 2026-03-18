@@ -226,7 +226,7 @@ export class HttpClient {
               logger.info('Token refrescado, reintentando request original');
               // Resetear el contador de reintentos si el refresh fue exitoso
               this.refreshRetryCount = 0;
-              return this.request<T>(method, endpoint, options);
+              return this.requestApiResponse<T>(method, endpoint, options);
             } else {
               logger.error('No se pudo refrescar el token');
               tokenManager.clearTokens();
@@ -256,7 +256,7 @@ export class HttpClient {
       if (retry > 0 && this.shouldRetry(error)) {
         logger.debug(`Reintentando ${method} ${endpoint} (${retry} intentos restantes)`);
         await this.delay(apiConfig.retryDelay);
-        return this.request<T>(method, endpoint, { ...options, retry: retry - 1 });
+        return this.requestApiResponse<T>(method, endpoint, { ...options, retry: retry - 1 });
       }
 
       // Log y re-throw error
@@ -368,7 +368,60 @@ export class HttpClient {
   delete<T = any>(endpoint: string, options?: RequestOptions): Promise<T> {
     return this.request<T>('DELETE', endpoint, options);
   }
+
+  /**
+   * Download file (returns blob)
+   */
+  async downloadFile(
+    endpoint: string,
+    params?: Record<string, any>,
+    options?: { showMessage?: boolean }
+  ): Promise<{ data: Blob; filename?: string }> {
+    const queryString = this.buildQueryString(params);
+    const url = `${this.baseURL}${endpoint}${queryString}`;
+    
+    logger.debug(`Downloading file from ${endpoint}`, { params });
+
+    const token = tokenManager.getAccessToken();
+    const headers: Record<string, string> = {
+      ...this.defaultHeaders,
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        credentials: apiConfig.credentials,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error al descargar archivo: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      
+      // Intentar obtener el nombre del archivo del header Content-Disposition
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename: string | undefined;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+
+      logger.debug(`File downloaded successfully from ${endpoint}`);
+      return { data: blob, filename };
+    } catch (error) {
+      logger.error(`Failed to download file from ${endpoint}`, { error });
+      throw error;
+    }
+  }
 }
 
 // Instancia singleton del cliente HTTP
 export const httpClient = new HttpClient();
+export const apiClient = httpClient; // Alias para compatibilidad

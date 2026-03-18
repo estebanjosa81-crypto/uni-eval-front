@@ -13,7 +13,8 @@ import {
 import { type CategoriaTipo, type TipoMapItem } from "@/src/api";
 import { categoriaTipoMapService } from "@/src/api";
 import { useToast } from "@/hooks/use-toast";
-import { ModalConfirmacion } from "../../ModalConfirmacion";
+import { useDeleteConfirmation } from "../../../hooks";
+import { ConfirmDeleteDialog } from "../../../components/shared";
 
 interface CategoriaTipoMapViewProps {
   categoria: CategoriaTipo;
@@ -29,7 +30,16 @@ export function CategoriaTipoMapView({
   const { toast } = useToast();
   const [tiposAsociados, setTiposAsociados] = useState<TipoMapItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [tipoAEliminar, setTipoAEliminar] = useState<TipoMapItem | null>(null);
+  
+  const { confirmationDialog, requestDeleteConfirmation } = useDeleteConfirmation({
+    onSuccess: () => {
+      cargarTipos();
+      toast({
+        title: "Tipo removido",
+        description: "El tipo ha sido removido de la categoría",
+      });
+    },
+  });
 
   useEffect(() => {
     cargarTipos();
@@ -53,17 +63,21 @@ export function CategoriaTipoMapView({
     }
   };
 
-  const handleRemoverTipo = async () => {
-    if (!tipoAEliminar) return;
-    const response = await categoriaTipoMapService.removeTipoFromCategoria(
-      categoria.id,
-      tipoAEliminar.id
+  const handleRemoverTipo = (tipo: TipoMapItem) => {
+    requestDeleteConfirmation(
+      "Remover Tipo de Categoría",
+      `¿Está seguro de remover "${tipo.nombre}" de la categoría "${categoria.nombre}"?`,
+      async () => {
+        const response = await categoriaTipoMapService.removeTipoFromCategoria(
+          categoria.id,
+          tipo.id
+        );
+        
+        if (!response.success) {
+          throw new Error(response.error?.message || "No se pudo remover el tipo");
+        }
+      }
     );
-    
-    if (!response.success) {
-      throw new Error(response.error?.message || "No se pudo remover el tipo");
-    }
-    await cargarTipos();
   };
 
   return (
@@ -118,23 +132,6 @@ export function CategoriaTipoMapView({
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1 flex-wrap">
-                        <h3 className="font-semibold text-lg">{tipo.nombre}</h3>
-                        <Badge
-                          variant={tipo.es_activo ? "default" : "destructive"}
-                          className="flex items-center gap-1"
-                        >
-                          {tipo.es_activo ? (
-                            <CheckCircle2 className="h-4 w-4" />
-                          ) : (
-                            <XCircle className="h-4 w-4" />
-                          )}
-                          {tipo.es_activo ? "Activo" : "Inactivo"}
-                        </Badge>
-                        {tipo.es_evaluacion && (
-                          <Badge variant="outline">Evaluación</Badge>
-                        )}
-                      </div>
                       <p className="text-sm text-muted-foreground">{tipo.descripcion}</p>
                     </div>
 
@@ -142,7 +139,7 @@ export function CategoriaTipoMapView({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setTipoAEliminar(tipo)}
+                        onClick={() => handleRemoverTipo(tipo)}
                         title="Remover de categoría"
                         className="hover:bg-muted hover:text-destructive"
                       >
@@ -156,13 +153,7 @@ export function CategoriaTipoMapView({
           </div>
         )}
       </CardContent>
-      <ModalConfirmacion
-        isOpen={Boolean(tipoAEliminar)}
-        onClose={() => setTipoAEliminar(null)}
-        onConfirm={handleRemoverTipo}
-        title="Remover tipo de categoría"
-        description={`¿Seguro que deseas remover el tipo "${tipoAEliminar?.nombre || ""}" de la categoría?`}
-      />
+      <ConfirmDeleteDialog {...confirmationDialog} />
     </Card>
   );
 }

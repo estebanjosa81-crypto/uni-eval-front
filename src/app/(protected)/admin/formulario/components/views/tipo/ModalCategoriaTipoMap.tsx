@@ -24,7 +24,7 @@ interface ModalCategoriaTipoMapProps {
   isOpen: boolean;
   onClose: () => void;
   categoria?: CategoriaTipo;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
 }
 
 export function ModalCategoriaTipoMap({
@@ -174,7 +174,7 @@ export function ModalCategoriaTipoMap({
             ? "Tipos asociados correctamente a la categoría"
             : "Categoría creada con tipos asociados",
         });
-        onSuccess();
+        await Promise.resolve(onSuccess());
         onClose();
       }
     } catch (error) {
@@ -190,14 +190,14 @@ export function ModalCategoriaTipoMap({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-[2.2rem] border-slate-100 bg-white p-0 shadow-2xl">
+        <DialogHeader className="border-b border-slate-100 px-8 py-6 text-left">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-primary/10 rounded-lg">
               <FolderPlus className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <DialogTitle className="text-xl font-semibold">
+              <DialogTitle className="text-2xl font-black italic tracking-tight text-slate-900">
                 {categoria 
                   ? `Agregar Tipos a "${categoria.nombre}"`
                   : "Crear Categoría con Tipos"}
@@ -270,10 +270,6 @@ export function ModalCategoriaTipoMap({
                         htmlFor={`tipo-${tipo.id}`}
                         className="flex-1 cursor-pointer text-sm"
                       >
-                        <div className="flex items-center gap-2">
-                          <span>{tipo.nombre}</span>
-                          {tipo.es_activo && <Badge variant="outline" className="text-xs">Activo</Badge>}
-                        </div>
                         <p className="text-xs text-muted-foreground">{tipo.descripcion}</p>
                       </Label>
                     </div>
@@ -368,7 +364,7 @@ export function ModalCategoriaTipoMap({
           </Card>
         </form>
 
-        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+        <DialogFooter className="border-t border-slate-100 bg-slate-50/30 px-8 py-5 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
           <Button 
             type="button" 
             variant="outline" 

@@ -22,7 +22,7 @@ interface ModalCategoriaEscalaMapProps {
   isOpen: boolean;
   onClose: () => void;
   categoria?: CategoriaEscala;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
 }
 
 export function ModalCategoriaEscalaMap({
@@ -174,7 +174,7 @@ export function ModalCategoriaEscalaMap({
             ? "Escalas asociadas correctamente a la categoría"
             : "Categoría creada con escalas asociadas",
         });
-        onSuccess();
+        await Promise.resolve(onSuccess());
         onClose();
       }
     } catch (error) {
@@ -190,14 +190,14 @@ export function ModalCategoriaEscalaMap({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-[2.2rem] border-slate-100 bg-white p-0 shadow-2xl">
+        <DialogHeader className="border-b border-slate-100 px-8 py-6 text-left">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-primary/10 rounded-lg">
               <FolderPlus className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <DialogTitle className="text-xl font-semibold">
+              <DialogTitle className="text-2xl font-black italic tracking-tight text-slate-900">
                 {categoria 
                   ? `Asociar Escalas - ${categoria.nombre}`
                   : "Nueva Categoría con Escalas"
@@ -385,7 +385,7 @@ export function ModalCategoriaEscalaMap({
           </Card>
         </form>
 
-        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+        <DialogFooter className="border-t border-slate-100 bg-slate-50/30 px-8 py-5 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
           <Button 
             type="button" 
             variant="outline" 

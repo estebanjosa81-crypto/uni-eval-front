@@ -3,16 +3,16 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/src/api/services/auth/auth.service";
-import { LoginForm } from "./components/LoginForm";
-import { LoginHeader } from "./components/LoginHeader";
-import { LoginFooter } from "./components/LoginFooter";
-import { LoginButton } from "./components/LoginButton";
-import { MediaContent } from "./components/MediaContent";
-import { MediaToggleButton } from "./components/MediaToggleButton";
+import { LoginForm } from "./components/card/LoginForm";
+import { LoginHeader } from "./components/card/LoginHeader";
+import { LoginFooter } from "./components/card/LoginFooter";
+import { LoginButton } from "./components/card/LoginButton";
+import { MediaContent } from "./components/video/MediaContent";
+import { MediaToggleButton } from "./components/video/MediaToggleButton";
 import { useMediaDetection } from "./hooks/useMediaDetection";
 import { getLayoutClasses } from "./utils/layout.utils";
 import { getRedirectPath, getRememberedUsername, saveRememberedUsername, saveUserData } from "./utils/auth";
-import type { LoginFormData, LoginStage, MediaMode, VideoType, VideoFormat } from "./types/types";
+import type { LoginFormData, LoginStage, MediaMode, VideoType } from "./types/types";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,7 +29,6 @@ export default function LoginPage() {
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const [mediaMode, setMediaMode] = useState<MediaMode>("video");
   const [videoType, setVideoType] = useState<VideoType>("youtube");
-  const [isFormValid, setIsFormValid] = useState(false); // Added state for form validation
   const { videoFormat } = useMediaDetection(videoType);
 
   useEffect(() => {
@@ -44,32 +43,16 @@ export default function LoginPage() {
     setTimeout(() => setIsPageLoaded(true), 100);
   }, []);
 
-  const updateFormData = useCallback((field: keyof LoginFormData, value: any) => {
+  const updateFormData = (field: keyof LoginFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-  }, []);
+  };
 
-  const toggleMediaMode = useCallback(() => {
+  const toggleMediaMode = () => {
     setMediaMode((prev) => (prev === "video" ? "image" : "video"));
-  }, []);
+  };
 
-  // Video format detection handler
-  const handleVideoFormatDetected = useCallback((format: VideoFormat) => {
-    // Optional: Add analytics or logging here
-  }, []);
-
-  // Added the missing handleValidationChange function
-  const handleValidationChange = useCallback((isValid: boolean) => {
-    setIsFormValid(isValid);
-  }, []);
-
-  const handleLogin = useCallback(async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Prevenir múltiples envíos si ya está en proceso
-    if (loginStage !== "idle") {
-      return;
-    }
-    
     setLoginStage("loading");
 
     try {
@@ -114,7 +97,7 @@ export default function LoginPage() {
       });
       return;
     }
-  }, [formData, router, toast, loginStage]);
+  };
 
   const isDisabled = loginStage !== "idle";
   const animationClass = `transition-all duration-700 ease-out ${
@@ -135,7 +118,6 @@ export default function LoginPage() {
             videoType={videoType}
             videoFormat={videoFormat}
             onVideoError={() => setVideoType("youtube")}
-            onVideoFormatDetected={handleVideoFormatDetected}
           />
         </div>
         <div className="absolute inset-0 backdrop-blur-3xl bg-gradient-to-br from-slate-900/40 via-slate-800/30 to-slate-900/40"></div>
@@ -154,7 +136,6 @@ export default function LoginPage() {
               videoType={videoType}
               videoFormat={videoFormat}
               onVideoError={() => setVideoType("youtube")}
-              onVideoFormatDetected={handleVideoFormatDetected}
             />
           </div>
           <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-white/5"></div>
@@ -174,14 +155,12 @@ export default function LoginPage() {
               onSubmit={handleLogin}
               isDisabled={isDisabled}
               videoFormat={videoFormat}
-              onValidationChange={handleValidationChange}
             >
               <div className="mt-6">
                 <LoginButton 
                   loginStage={loginStage} 
                   isDisabled={isDisabled} 
                   videoFormat={videoFormat}
-                  isFormValid={isFormValid} 
                 />
               </div>
             </LoginForm>

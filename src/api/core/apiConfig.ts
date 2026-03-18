@@ -14,7 +14,7 @@ export interface ApiConfig {
 }
 
 export const apiConfig: ApiConfig = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1',
   timeout: 30000, // 30 segundos
   retryDelay: 1000, // 1 segundo
   maxRetries: 2,

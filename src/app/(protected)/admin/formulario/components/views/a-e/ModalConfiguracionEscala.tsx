@@ -4,13 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { BaseModal } from "@/components/modals";
 import {
   Table,
   TableBody,
@@ -35,7 +29,7 @@ import {
 interface ModalConfiguracionEscalaProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
   cfgTId?: number | null;
   escalas: Escala[];
 }
@@ -150,14 +144,79 @@ export function ModalConfiguracionEscala({
     }
   };
 
+  /**
+   * Calcula los puntajes automáticamente basado en el orden
+   * Fórmula: Valor = (posición - 1) × (5 / (N - 1))
+   * Donde N es el número de escalas seleccionadas
+   */
+  const calculateScoresByOrder = (rows: EscalaRow[]): EscalaRow[] => {
+    const selectedRows = rows.filter((row) => row.selected);
+
+    if (selectedRows.length === 0) {
+      return rows.map((row) => ({ ...row, puntaje: 0 }));
+    }
+
+    if (selectedRows.length === 1) {
+      return rows.map((row) =>
+        row.selected ? { ...row, puntaje: 5 } : row
+      );
+    }
+
+    // Ordenar por el campo orden
+    const sortedSelected = [...selectedRows].sort((a, b) => a.orden - b.orden);
+
+    // Calcular puntajes
+    const N = selectedRows.length;
+    const scoreMap = new Map<number, number>();
+
+    sortedSelected.forEach((row, index) => {
+      const posicion = index + 1; // 1-indexed
+      const puntaje = (posicion - 1) * (5 / (N - 1));
+      scoreMap.set(row.escala_id, Math.round(puntaje * 100) / 100); // Redondear a 2 decimales
+    });
+
+    // Aplicar los puntajes calculados a todas las filas
+    return rows.map((row) => ({
+      ...row,
+      puntaje: scoreMap.has(row.escala_id) ? scoreMap.get(row.escala_id)! : row.puntaje,
+    }));
+  };
+
   const updateRow = (categoriaId: number, escalaId: number, updates: Partial<EscalaRow>) => {
     setRowsByCategory((prev) => {
       const rows = prev[categoriaId] ?? [];
+      
+      // Si se está seleccionando una escala, asignar el siguiente orden
+      if (updates.selected === true) {
+        const maxOrden = rows
+          .filter((row) => row.selected)
+          .reduce((max, row) => Math.max(max, row.orden), 0);
+        
+        const updatedRows = rows.map((row) =>
+          row.escala_id === escalaId ? { ...row, ...updates, orden: maxOrden + 1 } : row
+        );
+        
+        return {
+          ...prev,
+          [categoriaId]: calculateScoresByOrder(updatedRows),
+        };
+      }
+      
+      // Para otros cambios
+      const updatedRows = rows.map((row) =>
+        row.escala_id === escalaId ? { ...row, ...updates } : row
+      );
+
+      if (updates.orden !== undefined || updates.selected === false) {
+        return {
+          ...prev,
+          [categoriaId]: calculateScoresByOrder(updatedRows),
+        };
+      }
+
       return {
         ...prev,
-        [categoriaId]: rows.map((row) =>
-          row.escala_id === escalaId ? { ...row, ...updates } : row
-        ),
+        [categoriaId]: updatedRows,
       };
     });
   };
@@ -210,7 +269,7 @@ export function ModalConfiguracionEscala({
           title: "Configuración guardada",
           description: "Las escalas fueron configuradas correctamente",
         });
-        onSuccess();
+        await Promise.resolve(onSuccess());
         onClose();
       } else {
         throw new Error("No se pudo guardar la configuración");
@@ -227,25 +286,38 @@ export function ModalConfiguracionEscala({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Settings className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <DialogTitle className="text-xl font-semibold">
-                Configurar Escalas
-              </DialogTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Selecciona categorías y configura sus escalas
-              </p>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <Card className="border shadow-none bg-muted/20">
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Configurar Escalas"
+      description="Selecciona categorías y configura sus escalas"
+      icon={Settings}
+      size="xl"
+      closeOnOverlayClick={!isLoading}
+      showCloseButton={!isLoading}
+      footer={
+        <div className="flex w-full gap-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isLoading}
+                className="flex-1 h-12 rounded-2xl border-2 border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isLoading || selectedCount === 0}
+                className="flex-1 h-12 rounded-2xl bg-slate-900 text-sm font-semibold text-white shadow-xl shadow-slate-200 hover:bg-slate-800 active:scale-95 transition-all"
+          >
+            {isLoading ? "Guardando..." : "Guardar configuración"}
+          </Button>
+        </div>
+      }
+    >
+      <Card className="border shadow-none bg-muted/20">
           <CardContent className="p-4 space-y-4">
             {categorias.length === 0 ? (
               <div className="text-sm text-muted-foreground flex items-center gap-2">
@@ -332,11 +404,8 @@ export function ModalConfiguracionEscala({
                                             type="number"
                                             step="0.1"
                                             value={row.puntaje}
-                                            onChange={(e) =>
-                                              updateRow(categoria.id, row.escala_id, {
-                                                puntaje: Number(e.target.value),
-                                              })
-                                            }
+                                            readOnly
+                                            className="bg-muted cursor-not-allowed"
                                           />
                                         </TableCell>
                                         <TableCell>
@@ -349,13 +418,9 @@ export function ModalConfiguracionEscala({
                                           <Input
                                             id={`orden-${row.escala_id}`}
                                             type="number"
-                                            min={1}
                                             value={row.orden}
-                                            onChange={(e) =>
-                                              updateRow(categoria.id, row.escala_id, {
-                                                orden: Number(e.target.value),
-                                              })
-                                            }
+                                            readOnly
+                                            className="bg-muted cursor-not-allowed"
                                           />
                                         </TableCell>
                                         <TableCell>
@@ -397,20 +462,6 @@ export function ModalConfiguracionEscala({
           </CardContent>
         </Card>
 
-        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={isLoading}
-          >
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} disabled={isLoading || selectedCount === 0}>
-            {isLoading ? "Guardando..." : "Guardar configuración"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </BaseModal>
   );
 }

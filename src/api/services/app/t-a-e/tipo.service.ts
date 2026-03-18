@@ -15,8 +15,14 @@ export interface Tipo {
 	id: number;
 	nombre: string;
 	descripcion?: string | null;
-	es_evaluacion?: boolean | null;
-	es_activo?: boolean | null;
+	fecha_creacion?: string | null;
+	fecha_actualizacion?: string | null;
+}
+
+export interface TipoForm {
+	id: number;
+	nombre: string;
+	descripcion?: string | null;
 	fecha_creacion?: string | null;
 	fecha_actualizacion?: string | null;
 }
@@ -40,15 +46,21 @@ export interface ConfiguracionTipoRol {
 export interface CreateTipoInput {
 	nombre: string;
 	descripcion?: string | null;
-	es_evaluacion?: boolean;
-	es_activo?: boolean;
 }
 
 export interface UpdateTipoInput {
 	nombre?: string;
 	descripcion?: string | null;
-	es_evaluacion?: boolean;
-	es_activo?: boolean;
+}
+
+export interface CreateTipoFormInput {
+	nombre: string;
+	descripcion?: string | null;
+}
+
+export interface UpdateTipoFormInput {
+	nombre?: string;
+	descripcion?: string | null;
 }
 
 export interface CreateCategoriaTipoInput {
@@ -90,8 +102,6 @@ export interface CreateCategoriaTipoMapInput {
 		id?: number;
 		nombre?: string;
 		descripcion?: string | null;
-		es_evaluacion?: boolean;
-		es_activo?: boolean;
 	}>;
 }
 
@@ -166,6 +176,12 @@ class ConfiguracionTipoRolService extends BaseService<
 	}
 }
 
+class TipoFormService extends BaseService<TipoForm, CreateTipoFormInput, UpdateTipoFormInput> {
+	constructor() {
+		super('/tipo/form');
+	}
+}
+
 class CategoriaTipoMapService {
 	/**
 	 * Listar tipos asociados a una categoría
@@ -219,3 +235,4 @@ export const tiposEvaluacionService = tipoService;
 export const categoriaTipoService = new CategoriaTipoService();
 export const configuracionTipoRolService = new ConfiguracionTipoRolService();
 export const categoriaTipoMapService = new CategoriaTipoMapService();
+export const tipoFormService = new TipoFormService();

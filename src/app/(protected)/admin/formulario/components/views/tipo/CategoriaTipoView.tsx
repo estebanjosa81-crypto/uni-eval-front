@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +12,6 @@ import { type CategoriaTipo } from "@/src/api";
 import { categoriaTipoService } from "@/src/api";
 import type { PaginationMeta } from "@/src/api/types/api.types";
 import { PaginationControls } from "../../PaginationControls";
-import { ModalConfirmacion } from "../../ModalConfirmacion";
 
 interface CategoriaTipoViewProps {
   categorias: CategoriaTipo[];
@@ -34,12 +32,6 @@ export function CategoriaTipoView({
   onPageChange,
   onLimitChange,
 }: CategoriaTipoViewProps) {
-  const [categoriaAEliminar, setCategoriaAEliminar] = useState<CategoriaTipo | null>(null);
-
-  const handleDelete = async () => {
-    if (!categoriaAEliminar) return;
-    await handleEliminarCategoriaTipo(categoriaAEliminar);
-  };
 
   return (
     <Card>
@@ -121,7 +113,7 @@ export function CategoriaTipoView({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setCategoriaAEliminar(categoria)}
+                      onClick={() => handleEliminarCategoriaTipo(categoria)}
                       title="Eliminar"
                       className="hover:bg-muted hover:text-destructive"
                     >
@@ -139,13 +131,6 @@ export function CategoriaTipoView({
           onLimitChange={onLimitChange}
         />
       </CardContent>
-      <ModalConfirmacion
-        isOpen={Boolean(categoriaAEliminar)}
-        onClose={() => setCategoriaAEliminar(null)}
-        onConfirm={handleDelete}
-        title="Eliminar categoría de tipos"
-        description={`¿Seguro que deseas eliminar la categoría "${categoriaAEliminar?.nombre || ""}"?`}
-      />
     </Card>
   );
 }

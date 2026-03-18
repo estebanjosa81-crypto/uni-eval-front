@@ -68,6 +68,7 @@ export interface SummaryByPrograms {
 // Ranking Types
 export interface RankingItem {
   docente: string;
+  nombre_docente: string;
   avg: number;
   adjusted: number;
   realizados: number;
@@ -103,14 +104,27 @@ export interface AspectoMetric {
   desviacion?: number | null;
 }
 
+export interface AspectoGroupMetrics {
+  peso: number;
+  suma_total: number;
+  total_respuestas: number;
+  promedio_general: number | null;
+  ponderado: number | null;
+  desviacion?: number | null;
+  aspectos: AspectoMetric[];
+}
+
+export interface ResultadoFinalMetrics {
+  nota_final_ponderada: number | null;
+}
+
 export interface DocenteAspectosMetrics {
   docente: string | string[];
   codigo_materia?: string | null;
-  suma_total: number;
-  total_respuestas: number;
-  promedio: number | null;
-  desviacion: number | null;
-  aspectos: AspectoMetric[];
+  escala_maxima: number;
+  evaluacion_estudiantes: AspectoGroupMetrics;
+  autoevaluacion_docente: AspectoGroupMetrics;
+  resultado_final: ResultadoFinalMetrics;
 }
 
 export interface MateriaGrupoMetric {
@@ -125,11 +139,14 @@ export interface MateriaGrupoMetric {
   total_estudiantes_registrados: number;
   total_aspectos: number;
   porcentaje_cumplimiento: number;
+  nota_final_ponderada?: number | null;
 }
 
 export interface MateriaMetric {
   codigo_materia: string;
   nombre_materia: string;
+  nom_programa: string;
+  semestre: string;
   total_evaluaciones: number;
   total_realizadas: number;
   total_pendientes: number;
@@ -140,6 +157,7 @@ export interface MateriaMetric {
   total_estudiantes_registrados: number;
   total_aspectos: number;
   porcentaje_cumplimiento: number;
+  nota_final_ponderada?: number | null;
   grupo?: string;
   grupos?: MateriaGrupoMetric[];
 }
@@ -175,6 +193,7 @@ export interface GrupoCompletion {
 
 export interface MateriaCompletionMetrics {
   docente: string;
+  nombre_docente?: string;
   codigo_materia: string;
   grupos: GrupoCompletion[];
 }
@@ -239,12 +258,22 @@ export const metricService = {
    * Obtener listado de docentes con métricas (paginado)
    */
   getDocentes: async (
-    filters: MetricFilters & { docente?: string; page?: number; limit?: number }
+    filters: MetricFilters & {
+      docente?: string;
+      page?: number;
+      limit?: number;
+      search?: string;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    }
   ): Promise<DocenteListResponse> => {
     const params = new URLSearchParams();
     params.append('cfg_t', filters.cfg_t.toString());
 
     if (filters.docente) params.append('docente', filters.docente);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.sortBy) params.append('sortBy', filters.sortBy);
+    if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
     if (filters.sede) params.append('sede', filters.sede);
     if (filters.periodo) params.append('periodo', filters.periodo);
     if (filters.programa) params.append('programa', filters.programa);

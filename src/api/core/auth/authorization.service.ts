@@ -19,6 +19,7 @@ import {
   AUTH_ROLE_IDS,
   APP_ROLE_ID_TO_NAME,
   APP_ROLE_NAME_TO_ID,
+  AUTH_ROLE_ID_TO_NAME,
   ROLE_ROUTES, 
   ROLE_PRIORITY 
 } from './types';
@@ -155,10 +156,30 @@ export function getPrimaryRoleId(user: User | null): number | null {
 export function getDefaultRoute(user: User | null): string {
   if (!user) return '/login';
   
+  // Primero intentar con roles de aplicación
   const primaryRoleId = getPrimaryRoleId(user);
   
   if (primaryRoleId !== null && ROLE_ROUTES[primaryRoleId]) {
     return ROLE_ROUTES[primaryRoleId];
+  }
+  
+  // Si no tiene roles de aplicación, verificar roles de autenticación
+  const authRoleIds = getUserAuthRoleIds(user);
+  
+  // Si es estudiante (AUTH_ROLE_IDS.ESTUDIANTE = 1)
+  if (authRoleIds.includes(AUTH_ROLE_IDS.ESTUDIANTE)) {
+    return '/estudiante/bienvenida';
+  }
+
+  // Si es docente o docente de apoyo (AUTH_ROLE_IDS.DOCENTE = 2 o DOCENTE_APOYO = 15)
+  // IMPORTANTE: Verificar docente ANTES que director programa (evita colisión de IDs)
+  if (authRoleIds.includes(AUTH_ROLE_IDS.DOCENTE) || authRoleIds.includes(AUTH_ROLE_IDS.DOCENTE_APOYO)) {
+    return '/docente/dashboard';
+  }
+  
+  // Si es admin (AUTH_ROLE_IDS.ADMIN = 3)
+  if (authRoleIds.includes(AUTH_ROLE_IDS.ADMIN)) {
+    return '/admin/dashboard';
   }
   
   return '/login';
@@ -170,7 +191,8 @@ export function getDefaultRoute(user: User | null): string {
 export function canAccessRoute(
   user: User | null, 
   routePath: string, 
-  allowedRoleIds?: number[]
+  allowedRoleIds?: number[],
+  roleType: RoleType = 'app'
 ): boolean {
   if (!user) return false;
   
@@ -180,6 +202,11 @@ export function canAccessRoute(
   // Si no se especifican roles permitidos, cualquier usuario autenticado puede acceder
   if (!allowedRoleIds || allowedRoleIds.length === 0) return true;
   
+  // Verificar según el tipo de rol
+  if (roleType === 'auth') {
+    return hasAuthRole(user, allowedRoleIds);
+  }
+  
   return hasAppRole(user, allowedRoleIds);
 }
 
@@ -188,7 +215,7 @@ export function canAccessRoute(
 // ========================
 
 /**
- * Normaliza el nombre de un rol para mapeo a ID
+ * Normaliza el nombre de un rol para mapeo a ID (roles de app)
  */
 export function normalizeRoleName(roleName: string): AppRoleName | null {
   const normalized = roleName.toLowerCase().trim();
@@ -196,14 +223,29 @@ export function normalizeRoleName(roleName: string): AppRoleName | null {
   const roleMap: Record<string, AppRoleName> = {
     'admin': 'Admin',
     'administrador': 'Admin',
-    'docente': 'Docente',
-    'docente_planta': 'Docente',
-    'docente_catedra': 'Docente',
-    'profesor': 'Docente',
-    'estudiante': 'Estudiante',
-    'alumno': 'Estudiante',
     'director programa': 'Director Programa',
     'director_programa': 'Director Programa',
+  };
+  
+  return roleMap[normalized] ?? null;
+}
+
+/**
+ * Mapea nombre de rol de autenticación a ID
+ * Maneja variaciones del backend como 'docente_planta', 'docente de apoyo'
+ */
+export function normalizeAuthRoleName(roleName: string): number | null {
+  const normalized = roleName.toLowerCase().trim();
+  
+  const roleMap: Record<string, number> = {
+    'estudiante': AUTH_ROLE_IDS.ESTUDIANTE,
+    'docente': AUTH_ROLE_IDS.DOCENTE,
+    'docente_planta': AUTH_ROLE_IDS.DOCENTE,
+    'docente planta': AUTH_ROLE_IDS.DOCENTE,
+    'docente_apoyo': AUTH_ROLE_IDS.DOCENTE_APOYO,
+    'docente de apoyo': AUTH_ROLE_IDS.DOCENTE_APOYO,
+    'admin': AUTH_ROLE_IDS.ADMIN,
+    'administrador': AUTH_ROLE_IDS.ADMIN,
   };
   
   return roleMap[normalized] ?? null;
@@ -256,20 +298,19 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   },
   '/docente': {
     path: '/docente',
-    allowedRoleIds: [
-      APP_ROLE_IDS.ADMIN, 
-      APP_ROLE_IDS.DOCENTE, 
-      APP_ROLE_IDS.DIRECTOR_PROGRAMA
-    ],
+    allowedRoleIds: [AUTH_ROLE_IDS.DOCENTE, AUTH_ROLE_IDS.DOCENTE_APOYO],
     requiresAuth: true,
-    type: 'app',
+    type: 'auth',
   },
   '/estudiante': {
     path: '/estudiante',
-    allowedRoleIds: [
-      APP_ROLE_IDS.ADMIN, 
-      APP_ROLE_IDS.ESTUDIANTE
-    ],
+    allowedRoleIds: [AUTH_ROLE_IDS.ESTUDIANTE],
+    requiresAuth: true,
+    type: 'auth',
+  },
+  '/director-programa': {
+    path: '/director-programa',
+    allowedRoleIds: [APP_ROLE_IDS.DIRECTOR_PROGRAMA],
     requiresAuth: true,
     type: 'app',
   },

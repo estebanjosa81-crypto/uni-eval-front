@@ -5,6 +5,17 @@
 
 import { httpClient } from './HttpClient';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types/api.types';
+import type { ValidationResult, Validator } from '../validation/validation.types';
+
+export interface BaseServiceValidators<CreateInput, UpdateInput> {
+  create?: Validator<CreateInput>;
+  update?: Validator<UpdateInput>;
+  bulk?: Validator<any>;
+}
+
+export interface BaseServiceConfig<CreateInput, UpdateInput> {
+  validators?: BaseServiceValidators<CreateInput, UpdateInput>;
+}
 
 /**
  * Clase base genérica para servicios CRUD
@@ -13,14 +24,49 @@ import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types/
  * @template UpdateInput - Tipo de input para actualizar
  */
 export class BaseService<T extends { id: number }, CreateInput = Partial<T>, UpdateInput = Partial<T>> {
-  constructor(private baseUrl: string) {}
+  private validators?: BaseServiceValidators<CreateInput, UpdateInput>;
+
+  constructor(private baseUrl: string, config: BaseServiceConfig<CreateInput, UpdateInput> = {}) {
+    this.validators = config.validators;
+  }
+
+  private getValidationError(result: ValidationResult) {
+    return {
+      code: 400,
+      message: result.message || 'Validacion fallida',
+      details: result.issues,
+    };
+  }
+
+  private runValidation(
+    validator: Validator<any> | undefined,
+    data: any,
+    context?: any
+  ): ValidationResult | null {
+    if (!validator) return null;
+    return validator(data, context);
+  }
+
+  private isApiResponse(value: any): value is ApiResponse<any> {
+    return Boolean(value && typeof value === 'object' && 'success' in value && 'data' in value);
+  }
 
   /**
    * GET all con paginación opcional
    */
   async getAll(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<T>>> {
+    return this.getAllFrom(this.baseUrl, params);
+  }
+
+  /**
+   * GET all con paginación para endpoint custom
+   */
+  protected async getAllFrom(
+    endpoint: string,
+    params?: PaginationParams
+  ): Promise<ApiResponse<PaginatedResponse<T>>> {
     try {
-      const response = await httpClient.getWithMeta<any>(this.baseUrl, {
+      const response = await httpClient.getWithMeta<any>(endpoint, {
         params,
       });
 
@@ -66,6 +112,14 @@ export class BaseService<T extends { id: number }, CreateInput = Partial<T>, Upd
    */
   async create(data: CreateInput): Promise<ApiResponse<T>> {
     try {
+      const validation = this.runValidation(this.validators?.create, data);
+      if (validation && !validation.valid) {
+        return {
+          success: false,
+          data: {} as any,
+          error: this.getValidationError(validation),
+        };
+      }
       const response = await httpClient.post<T>(this.baseUrl, data);
       return {
         success: true,
@@ -85,6 +139,14 @@ export class BaseService<T extends { id: number }, CreateInput = Partial<T>, Upd
    */
   async update(id: number, data: UpdateInput): Promise<ApiResponse<T>> {
     try {
+      const validation = this.runValidation(this.validators?.update, data);
+      if (validation && !validation.valid) {
+        return {
+          success: false,
+          data: {} as any,
+          error: this.getValidationError(validation),
+        };
+      }
       const response = await httpClient.put<T>(`${this.baseUrl}/${id}`, data);
       return {
         success: true,
@@ -157,8 +219,16 @@ export class BaseService<T extends { id: number }, CreateInput = Partial<T>, Upd
   /**
    * POST bulk insert
    */
-  async bulkCreate(data: { items: any[] }): Promise<ApiResponse<any>> {
+  async bulkCreate(data: { items: any[] }, options?: { validationContext?: any }): Promise<ApiResponse<any>> {
     try {
+      const validation = this.runValidation(this.validators?.bulk, data, options?.validationContext);
+      if (validation && !validation.valid) {
+        return {
+          success: false,
+          data: {} as any,
+          error: this.getValidationError(validation),
+        };
+      }
       const response = await httpClient.post(`${this.baseUrl}/bulk`, data);
       return {
         success: true,
@@ -204,6 +274,9 @@ export class BaseService<T extends { id: number }, CreateInput = Partial<T>, Upd
   ): Promise<ApiResponse<R>> {
     try {
       const response = await fn();
+      if (this.isApiResponse(response)) {
+        return response;
+      }
       return {
         success: true,
         data: response,

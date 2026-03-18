@@ -12,7 +12,8 @@ import {
 import { type CategoriaEscala, type EscalaMapItem } from "@/src/api";
 import { categoriaEscalaMapService } from "@/src/api";
 import { useToast } from "@/hooks/use-toast";
-import { ModalConfirmacion } from "../../ModalConfirmacion";
+import { useDeleteConfirmation } from "../../../hooks";
+import { ConfirmDeleteDialog } from "../../../components/shared";
 
 interface CategoriaEscalaMapViewProps {
   categoria: CategoriaEscala;
@@ -28,7 +29,16 @@ export function CategoriaEscalaMapView({
   const { toast } = useToast();
   const [escalasAsociadas, setEscalasAsociadas] = useState<EscalaMapItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [escalaAEliminar, setEscalaAEliminar] = useState<EscalaMapItem | null>(null);
+  
+  const { confirmationDialog, requestDeleteConfirmation } = useDeleteConfirmation({
+    onSuccess: () => {
+      cargarEscalas();
+      toast({
+        title: "Escala removida",
+        description: "La escala ha sido removida de la categoría",
+      });
+    },
+  });
 
   useEffect(() => {
     cargarEscalas();
@@ -52,17 +62,21 @@ export function CategoriaEscalaMapView({
     }
   };
 
-  const handleRemoverEscala = async () => {
-    if (!escalaAEliminar) return;
-    const response = await categoriaEscalaMapService.removeEscalaFromCategoria(
-      categoria.id,
-      escalaAEliminar.id
+  const handleRemoverEscala = (escala: EscalaMapItem) => {
+    requestDeleteConfirmation(
+      "Remover Escala de Categoría",
+      `¿Está seguro de remover "${escala.nombre}" de la categoría "${categoria.nombre}"?`,
+      async () => {
+        const response = await categoriaEscalaMapService.removeEscalaFromCategoria(
+          categoria.id,
+          escala.id
+        );
+        
+        if (!response.success) {
+          throw new Error(response.error?.message || "No se pudo remover la escala");
+        }
+      }
     );
-    
-    if (!response.success) {
-      throw new Error(response.error?.message || "No se pudo remover la escala");
-    }
-    await cargarEscalas();
   };
 
   return (
@@ -131,7 +145,7 @@ export function CategoriaEscalaMapView({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setEscalaAEliminar(escala)}
+                        onClick={() => handleRemoverEscala(escala)}
                         title="Remover de categoría"
                         className="hover:bg-muted hover:text-destructive"
                       >
@@ -145,13 +159,7 @@ export function CategoriaEscalaMapView({
           </div>
         )}
       </CardContent>
-      <ModalConfirmacion
-        isOpen={Boolean(escalaAEliminar)}
-        onClose={() => setEscalaAEliminar(null)}
-        onConfirm={handleRemoverEscala}
-        title="Remover escala de categoría"
-        description={`¿Seguro que deseas remover la escala "${escalaAEliminar?.nombre || ""}" de la categoría?`}
-      />
+      <ConfirmDeleteDialog {...confirmationDialog} />
     </Card>
   );
 }

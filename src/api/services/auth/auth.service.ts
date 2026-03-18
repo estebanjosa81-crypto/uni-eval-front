@@ -24,6 +24,15 @@ export interface DataloginUser {
   role_name: string;
 }
 
+export interface AuthUserLookup extends DataloginUser {
+  rolesAuth?: Array<{ id: number; name: string }>;
+  rolesAuthIds?: number[];
+  rolesApp?: Array<{ id: number; name: string }>;
+  rolesAppIds?: number[];
+  roles?: string[];
+  rolesIds?: number[];
+}
+
 export interface LoginRequest {
   user_username: string;
   user_password: string;
@@ -58,6 +67,29 @@ export interface RefreshTokenResponse {
   refreshToken: string;
   jti: string;
   refreshExpiresAt: string;
+}
+
+export interface UserProfileMateria {
+  id: number;
+  codigo: number | string;
+  nombre: string;
+  docente?: {
+    documento: string;
+    nombre: string;
+  } | null;
+}
+
+export interface UserProfile {
+  sede: string;
+  facultad: string;
+  nombre_completo: string;
+  documento: string;
+  programa: string;
+  periodo: string;
+  semestre: string;
+  n_semestre: number | null;
+  grupo: string | null;
+  materias: UserProfileMateria[];
 }
 
 export interface AuthResponse extends ApiResponse<LoginResponse> {
@@ -99,11 +131,11 @@ export const authService = {
   getUserById: async (id: number): Promise<ApiResponse<DataloginUser>> => {
     try {
       logger.info('Obteniendo usuario por ID', { id });
-      const response = await httpClient.get<{ success: boolean; data: DataloginUser }>(`/auth/id/${id}`);
+      const userData = await httpClient.get<DataloginUser>(`/auth/id/${id}`);
       
       return {
         success: true,
-        data: response.data,
+        data: userData,
       };
     } catch (error: any) {
       logger.error('Error al obtener usuario por ID', { id, error: error.message });
@@ -119,20 +151,43 @@ export const authService = {
    * Obtener usuario por username
    * GET /auth/username/{username}
    */
-  getUserByUsername: async (username: string): Promise<ApiResponse<DataloginUser>> => {
+  getUserByUsername: async (username: string): Promise<ApiResponse<AuthUserLookup>> => {
     try {
       logger.info('Obteniendo usuario por username', { username });
-      const response = await httpClient.get<{ success: boolean; data: DataloginUser }>(`/auth/username/${username}`);
+      const response = await httpClient.getWithMeta<AuthUserLookup>(`/auth/username/${username}`);
       
       return {
-        success: true,
+        success: response.success || true,
         data: response.data,
       };
     } catch (error: any) {
       logger.error('Error al obtener usuario por username', { username, error: error.message });
       return {
         success: false,
-        data: {} as DataloginUser,
+        data: {} as AuthUserLookup,
+        error,
+      };
+    }
+  },
+
+  /**
+   * Obtener perfil del usuario autenticado (estudiante)
+   * GET /user
+   */
+  getProfile: async (): Promise<ApiResponse<UserProfile>> => {
+    try {
+      logger.info('Obteniendo perfil del usuario autenticado');
+      const response = await httpClient.get<UserProfile>('/user');
+
+      return {
+        success: true,
+        data: response,
+      };
+    } catch (error: any) {
+      logger.error('Error al obtener perfil del usuario', { error: error.message });
+      return {
+        success: false,
+        data: {} as UserProfile,
         error,
       };
     }

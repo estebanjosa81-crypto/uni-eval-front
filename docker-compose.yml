@@ -1,0 +1,36 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000/api/v1}
+        NEXT_PUBLIC_API_TIMEOUT: ${NEXT_PUBLIC_API_TIMEOUT:-30000}
+        NEXT_PUBLIC_RETRY_ATTEMPTS: ${NEXT_PUBLIC_RETRY_ATTEMPTS:-3}
+        NEXT_PUBLIC_RETRY_DELAY: ${NEXT_PUBLIC_RETRY_DELAY:-1000}
+    container_name: uni-eval-front
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000/api/v1}
+      NEXT_PUBLIC_API_TIMEOUT: ${NEXT_PUBLIC_API_TIMEOUT:-30000}
+      NEXT_PUBLIC_RETRY_ATTEMPTS: ${NEXT_PUBLIC_RETRY_ATTEMPTS:-3}
+      NEXT_PUBLIC_RETRY_DELAY: ${NEXT_PUBLIC_RETRY_DELAY:-1000}
+    ports:
+      - "3000:3000"
+    networks:
+      - eval-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+networks:
+  eval-network:
+    driver: bridge
+    external: true

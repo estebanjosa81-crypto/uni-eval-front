@@ -4,7 +4,7 @@
  */
 
 import { BaseService } from '../../core/BaseService';
-import type { ApiResponse } from '../../types/api.types';
+import type { ApiResponse, PaginatedResponse, PaginationParams } from '../../types/api.types';
 
 // ========================
 // TYPES
@@ -21,8 +21,22 @@ export interface UserRol {
   id: number;
   user_id: number;
   rol_id: number;
+  rol_nombre?: string | null;
   fecha_creacion?: string | null;
   fecha_actualizacion?: string | null;
+}
+
+export interface DataloginInfo {
+  user_name: string;
+  user_username: string;
+  user_email: string;
+  user_idrole: number;
+  user_statusid: string;
+  role_name: string;
+}
+
+export interface UserRolWithDatalogin extends UserRol {
+  datalogin: DataloginInfo;
 }
 
 export interface Prog {
@@ -34,8 +48,14 @@ export interface UserProg {
   id: number;
   user_rol_id: number;
   prog_id: number;
+  prog_nombre?: string;
+  datalogin?: DataloginInfo;
   fecha_creacion?: string | null;
   fecha_actualizacion?: string | null;
+}
+
+export interface UserProgWithDatalogin extends UserProg {
+  datalogin: DataloginInfo;
 }
 
 export interface CreateRolInput {
@@ -88,6 +108,14 @@ class UserRolService extends BaseService<UserRol, CreateUserRolInput, UpdateUser
   constructor() {
     super('/user/rol');
   }
+
+  /**
+   * Obtiene todos los roles de usuario con información de datalogin
+   * Endpoint: GET /user/rol/u
+   */
+  async getUserRoles(): Promise<ApiResponse<UserRolWithDatalogin[]>> {
+    return this.getCustom('/u');
+  }
 }
 
 class ProgService extends BaseService<Prog, CreateProgInput, UpdateProgInput> {
@@ -99,6 +127,14 @@ class ProgService extends BaseService<Prog, CreateProgInput, UpdateProgInput> {
 class UserProgService extends BaseService<UserProg, CreateUserProgInput, UpdateUserProgInput> {
   constructor() {
     super('/user/prog');
+  }
+
+  /**
+   * Obtiene todos los programas de usuario con información de datalogin
+   * Endpoint: GET /user/prog/u
+   */
+  async getUserProgs(): Promise<ApiResponse<UserProgWithDatalogin[]>> {
+    return this.getCustom('/u');
   }
 }
 

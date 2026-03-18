@@ -146,12 +146,16 @@ export function useRequireAuth(redirectTo: string = '/login') {
 }
 
 /**
- * Hook para requerir roles específicos
+ * Hook para requerir roles específicos usando IDs
  * Redirige a la ruta predeterminada si no tiene el rol
+ * 
+ * @param requiredRoleIds - ID o IDs de roles requeridos (usar APP_ROLE_IDS)
+ * @example useRequireRole(APP_ROLE_IDS.ADMIN)
+ * @example useRequireRole([APP_ROLE_IDS.ADMIN, APP_ROLE_IDS.DOCENTE])
  */
-export function useRequireRole(requiredRole: AppRoleName | AppRoleName[]) {
+export function useRequireRole(requiredRoleIds: number | number[]) {
   const router = useRouter();
-  const { user, isLoading, hasRole: checkHasRole, getDefaultRoute: getUserDefaultRoute } = useAuth();
+  const { user, isLoading, hasAppRole: checkHasAppRole, getDefaultRoute: getUserDefaultRoute } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [hasChecked, setHasChecked] = useState(false);
 
@@ -167,7 +171,7 @@ export function useRequireRole(requiredRole: AppRoleName | AppRoleName[]) {
         return;
       }
 
-      const authorized = checkHasRole(requiredRole);
+      const authorized = checkHasAppRole(requiredRoleIds);
       
       if (!authorized) {
         // Redirigir a la ruta predeterminada del usuario
@@ -182,7 +186,7 @@ export function useRequireRole(requiredRole: AppRoleName | AppRoleName[]) {
     };
 
     checkRole();
-  }, [user, isLoading, requiredRole, checkHasRole, getUserDefaultRoute, router, hasChecked]);
+  }, [user, isLoading, requiredRoleIds, checkHasAppRole, getUserDefaultRoute, router, hasChecked]);
 
   return { isAuthorized, user };
 }

@@ -163,30 +163,52 @@ export interface AdvancedServiceConfig<T> extends CrudServiceConfig {
     response?: (data: T) => T;
   };
   cache?: boolean;
-  validate?: (data: any) => boolean;
+  validate?: (data: any) => boolean | { valid: boolean; message?: string };
 }
 
 export function createAdvancedService<T, CreateDTO = Partial<T>, UpdateDTO = Partial<T>>(
   config: AdvancedServiceConfig<T>
 ) {
   const baseService = createCrudService<T, CreateDTO, UpdateDTO>(config);
-  
-  const { transform } = config;
-  
-  if (!transform) return baseService;
-  
-  // Wrapper para transformaciones
-  return {
+  const { transform, validate } = config;
+
+  const validateOrThrow = (data: any) => {
+    if (!validate) return;
+    const result = validate(data);
+    if (typeof result === 'boolean') {
+      if (!result) throw { code: 400, message: 'Validacion fallida' };
+      return;
+    }
+    if (result && !result.valid) {
+      throw { code: 400, message: result.message || 'Validacion fallida' };
+    }
+  };
+
+  if (!transform && !validate) return baseService;
+
+  // Wrapper para transformaciones y validacion
+  const service: any = {
     ...baseService,
     create: async (data: CreateDTO) => {
-      const transformed = transform.request ? transform.request(data) : data;
+      validateOrThrow(data);
+      const transformed = transform?.request ? transform.request(data) : data;
       const result = await baseService.create(transformed);
-      return transform.response ? transform.response(result) : result;
+      return transform?.response ? transform.response(result) : result;
     },
     update: async (id: string | number, data: UpdateDTO) => {
-      const transformed = transform.request ? transform.request(data) : data;
+      validateOrThrow(data);
+      const transformed = transform?.request ? transform.request(data) : data;
       const result = await baseService.update(id, transformed);
-      return transform.response ? transform.response(result) : result;
+      return transform?.response ? transform.response(result) : result;
     },
   };
+
+  if (baseService.bulkCreate) {
+    service.bulkCreate = async (data: BulkCreateDTO<CreateDTO>) => {
+      validateOrThrow(data);
+      return baseService.bulkCreate?.(data);
+    };
+  }
+
+  return service;
 }
